@@ -1,0 +1,225 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-apply.yml'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "apply" to confirm infrastructure deployment'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: us-east-1
+  TF_VAR_environment: production
+  TF_VAR_repo_name: ${{ github.repository }}
+  TF_VAR_commit_sha: ${{ github.sha }}
+
+jobs:
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.outputs.outputs.cluster_endpoint }}
+    
+    steps:
+      - name: Validate Manual Confirmation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "apply" ]; then
+            echo "❌ Confirmation required: type 'apply' to proceed"
+            exit 1
+          fi
+          echo "✅ Manual confirmation received"
+      
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformApply
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+      
+      - name: Download Plan Artifact (PR merge)
+        if: github.event_name == 'push'
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          workflow: terraform-plan.yml
+          name: terraform-plan
+          path: terraform/
+          github_token: ${{ steps.generate-token.outputs.token }}
+      
+      - name: Terraform Apply
+        id: apply
+        working-directory: ./terraform
+        run: |
+          # Apply with tags
+          terraform apply \
+            -auto-approve \
+            -var="github_token=${{ steps.generate-token.outputs.token }}" \
+            -var="tags={\"repo\":\"${{ github.repository }}\",\"environment\":\"${{ env.TF_VAR_environment }}\",\"commit\":\"${{ github.sha }}\",\"managed_by\":\"github-app\"}"
+      
+      - name: Extract Outputs
+        id: outputs
+        working-directory: ./terraform
+        run: |
+          # Get outputs
+          CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null || echo "")
+          CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint 2>/dev/null || echo "")
+          KUBECONFIG_PATH=$(terraform output -raw kubeconfig_path 2>/dev/null || echo "")
+          REGION=$(terraform output -raw region 2>/dev/null || echo "${{ env.AWS_REGION }}")
+          
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "kubeconfig_path=$KUBECONFIG_PATH" >> $GITHUB_OUTPUT
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+          
+          # Save to file for next jobs
+          cat > cluster-info.json <<EOF
+          {
+            "cluster_name": "$CLUSTER_NAME",
+            "cluster_endpoint": "$CLUSTER_ENDPOINT",
+            "kubeconfig_path": "$KUBECONFIG_PATH",
+            "region": "$REGION"
+          }
+          EOF
+      
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ steps.outputs.outputs.cluster_name }} \
+            --region ${{ steps.outputs.outputs.region }} \
+            --kubeconfig /tmp/kubeconfig
+          
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl cluster-info
+          kubectl get nodes
+      
+      - name: Upload Cluster Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-info
+          path: terraform/cluster-info.json
+          retention-days: 30
+      
+      - name: Create Deployment Summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const summary = `## 🚀 Infrastructure Deployment Complete
+            
+            ### Cluster Information
+            - **Name**: \`${{ steps.outputs.outputs.cluster_name }}\`
+            - **Endpoint**: \`${{ steps.outputs.outputs.cluster_endpoint }}\`
+            - **Region**: \`${{ steps.outputs.outputs.region }}\`
+            - **Commit**: \`${{ github.sha }}\`
+            
+            ### Tags Applied
+            - \`repo\`: ${{ github.repository }}
+            - \`environment\`: ${{ env.TF_VAR_environment }}
+            - \`commit\`: ${{ github.sha }}
+            - \`managed_by\`: github-app
+            
+            ### Next Steps
+            1. Ray cluster will be deployed automatically
+            2. Cost monitoring is enabled
+            3. Autoscaling configured for burst workloads
+            
+            *Deployment completed at: $(date -u)*
+            `;
+            
+            core.summary
+              .addRaw(summary)
+              .write();
+      
+      - name: Create Success Issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `✅ Infrastructure Deployed - ${new Date().toISOString().split('T')[0]}`,
+              body: `Infrastructure successfully deployed:
+              
+              - **Cluster**: \`${{ steps.outputs.outputs.cluster_name }}\`
+              - **Region**: \`${{ steps.outputs.outputs.region }}\`
+              - **Commit**: ${{ github.sha }}
+              - **Triggered by**: @${{ github.actor }}
+              
+              Ray deployment will begin automatically.`,
+              labels: ['infrastructure', 'deployment', 'success']
+            });
+      
+      - name: Trigger Ray Deployment
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ray-deploy.yml',
+              ref: 'main',
+              inputs: {
+                cluster_name: '${{ steps.outputs.outputs.cluster_name }}',
+                region: '${{ steps.outputs.outputs.region }}'
+              }
+            });
+      
+      - name: Handle Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `❌ Infrastructure Deployment Failed - ${new Date().toISOString().split('T')[0]}`,
+              body: `Infrastructure deployment failed:
+              
+              - **Commit**: ${{ github.sha }}
+              - **Workflow**: [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - **Triggered by**: @${{ github.actor }}
+              
+              Please review logs and retry.`,
+              labels: ['infrastructure', 'deployment', 'failure']
+            });
