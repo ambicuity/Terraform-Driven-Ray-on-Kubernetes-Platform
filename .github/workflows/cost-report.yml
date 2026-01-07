@@ -1,0 +1,330 @@
+name: Cost Report
+
+on:
+  schedule:
+    # Run daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  generate-cost-report:
+    name: Generate Cost Report
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CostReport
+      
+      - name: Get Cluster Name
+        id: cluster
+        run: |
+          # Try to get from Terraform state
+          cd terraform
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" || true
+          
+          CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null || echo "")
+          REGION=$(terraform output -raw region 2>/dev/null || echo "${{ env.AWS_REGION }}")
+          
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "No cluster found, skipping report"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+          echo "exists=true" >> $GITHUB_OUTPUT
+      
+      - name: Configure kubectl
+        if: steps.cluster.outputs.exists == 'true'
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ steps.cluster.outputs.name }} \
+            --region ${{ steps.cluster.outputs.region }} \
+            --kubeconfig /tmp/kubeconfig
+      
+      - name: Collect Node Metrics
+        if: steps.cluster.outputs.exists == 'true'
+        id: nodes
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Get node information
+          echo "=== Node Information ==="
+          kubectl get nodes -o wide
+          
+          # Count nodes by type
+          TOTAL_NODES=$(kubectl get nodes --no-headers | wc -l)
+          
+          # Get node instance types
+          echo -e "\n=== Instance Types ==="
+          kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name): \(.metadata.labels."node.kubernetes.io/instance-type")"'
+          
+          # Calculate capacity
+          echo -e "\n=== Node Capacity ==="
+          TOTAL_CPU=$(kubectl get nodes -o json | jq '[.items[].status.capacity.cpu | tonumber] | add')
+          TOTAL_MEMORY=$(kubectl get nodes -o json | jq '[.items[].status.capacity.memory | gsub("Ki";"") | tonumber] | add / 1048576')
+          
+          echo "total_nodes=$TOTAL_NODES" >> $GITHUB_OUTPUT
+          echo "total_cpu=$TOTAL_CPU" >> $GITHUB_OUTPUT
+          echo "total_memory_gb=$(printf "%.1f" $TOTAL_MEMORY)" >> $GITHUB_OUTPUT
+          
+          # Get GPU nodes count
+          GPU_NODES=$(kubectl get nodes -l 'node.kubernetes.io/instance-type=~p.*' --no-headers 2>/dev/null | wc -l || echo "0")
+          echo "gpu_nodes=$GPU_NODES" >> $GITHUB_OUTPUT
+      
+      - name: Collect Pod Metrics
+        if: steps.cluster.outputs.exists == 'true'
+        id: pods
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Ray pods
+          RAY_PODS=$(kubectl get pods -n ray-system --no-headers 2>/dev/null | wc -l || echo "0")
+          RAY_RUNNING=$(kubectl get pods -n ray-system --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l || echo "0")
+          
+          # System pods
+          SYSTEM_PODS=$(kubectl get pods -n kube-system --no-headers | wc -l)
+          
+          echo "ray_pods=$RAY_PODS" >> $GITHUB_OUTPUT
+          echo "ray_running=$RAY_RUNNING" >> $GITHUB_OUTPUT
+          echo "system_pods=$SYSTEM_PODS" >> $GITHUB_OUTPUT
+          
+          # Get resource requests
+          echo -e "\n=== Resource Requests (Ray) ==="
+          kubectl get pods -n ray-system -o json 2>/dev/null | \
+            jq -r '.items[] | "\(.metadata.name): CPU=\(.spec.containers[0].resources.requests.cpu // "none"), Memory=\(.spec.containers[0].resources.requests.memory // "none")"' || true
+      
+      - name: Analyze Utilization
+        if: steps.cluster.outputs.exists == 'true'
+        id: utilization
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Install metrics-server if not present
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml || true
+          sleep 10
+          
+          # Get current usage (may fail if metrics not ready)
+          echo "=== Current Resource Usage ==="
+          kubectl top nodes || echo "Metrics not available yet"
+          kubectl top pods -n ray-system || echo "Ray metrics not available yet"
+          
+          # Estimate utilization based on pod requests vs capacity
+          REQUESTED_CPU=$(kubectl get pods --all-namespaces -o json | \
+            jq '[.items[].spec.containers[].resources.requests.cpu // "0" | gsub("m";"") | tonumber] | add / 1000' || echo "0")
+          
+          TOTAL_CPU=${{ steps.nodes.outputs.total_cpu }}
+          
+          if [ "$TOTAL_CPU" != "0" ]; then
+            UTILIZATION=$(echo "scale=1; ($REQUESTED_CPU / $TOTAL_CPU) * 100" | bc)
+          else
+            UTILIZATION="0"
+          fi
+          
+          echo "cpu_utilization=$UTILIZATION" >> $GITHUB_OUTPUT
+          echo "requested_cpu=$REQUESTED_CPU" >> $GITHUB_OUTPUT
+      
+      - name: Estimate Costs
+        if: steps.cluster.outputs.exists == 'true'
+        id: costs
+        run: |
+          # Simple cost estimation based on EC2 pricing
+          # Note: Actual costs vary by region and instance type
+          
+          TOTAL_NODES=${{ steps.nodes.outputs.total_nodes }}
+          GPU_NODES=${{ steps.nodes.outputs.gpu_nodes }}
+          CPU_NODES=$((TOTAL_NODES - GPU_NODES))
+          
+          # Rough estimates (USD per hour)
+          CPU_NODE_COST=0.10  # ~m5.xlarge
+          GPU_NODE_COST=3.00  # ~p3.2xlarge
+          
+          HOURLY_COST=$(echo "scale=2; ($CPU_NODES * $CPU_NODE_COST) + ($GPU_NODES * $GPU_NODE_COST)" | bc)
+          DAILY_COST=$(echo "scale=2; $HOURLY_COST * 24" | bc)
+          MONTHLY_COST=$(echo "scale=2; $DAILY_COST * 30" | bc)
+          
+          echo "hourly_cost=$HOURLY_COST" >> $GITHUB_OUTPUT
+          echo "daily_cost=$DAILY_COST" >> $GITHUB_OUTPUT
+          echo "monthly_cost=$MONTHLY_COST" >> $GITHUB_OUTPUT
+          
+          # Estimate idle cost (unused capacity)
+          UTILIZATION=${{ steps.utilization.outputs.cpu_utilization }}
+          IDLE_PERCENT=$(echo "scale=1; 100 - $UTILIZATION" | bc)
+          IDLE_COST=$(echo "scale=2; $HOURLY_COST * $IDLE_PERCENT / 100" | bc)
+          
+          echo "idle_percent=$IDLE_PERCENT" >> $GITHUB_OUTPUT
+          echo "idle_cost_hourly=$IDLE_COST" >> $GITHUB_OUTPUT
+          
+          # Autoscaling potential savings
+          if (( $(echo "$IDLE_PERCENT > 30" | bc -l) )); then
+            POTENTIAL_SAVINGS=$(echo "scale=2; $IDLE_COST * 24 * 30" | bc)
+            echo "potential_monthly_savings=$POTENTIAL_SAVINGS" >> $GITHUB_OUTPUT
+            echo "recommendation=Consider enabling more aggressive autoscaling" >> $GITHUB_OUTPUT
+          else
+            echo "potential_monthly_savings=0" >> $GITHUB_OUTPUT
+            echo "recommendation=Cluster utilization is optimal" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Generate Report
+        if: steps.cluster.outputs.exists == 'true'
+        id: report
+        run: |
+          REPORT_DATE=$(date -u +"%Y-%m-%d")
+          
+          cat > cost-report.md <<'EOF'
+          # 💰 Infrastructure Cost Report
+          
+          **Date**: $REPORT_DATE
+          **Cluster**: ${{ steps.cluster.outputs.name }}
+          **Region**: ${{ steps.cluster.outputs.region }}
+          
+          ## 📊 Current Infrastructure
+          
+          | Resource | Count | Details |
+          |----------|-------|---------|
+          | Total Nodes | ${{ steps.nodes.outputs.total_nodes }} | ${{ steps.nodes.outputs.total_cpu }} vCPUs, ${{ steps.nodes.outputs.total_memory_gb }} GB RAM |
+          | GPU Nodes | ${{ steps.nodes.outputs.gpu_nodes }} | High-performance compute |
+          | CPU Nodes | $((${{ steps.nodes.outputs.total_nodes }} - ${{ steps.nodes.outputs.gpu_nodes }})) | Standard compute |
+          | Ray Pods | ${{ steps.pods.outputs.ray_running }}/${{ steps.pods.outputs.ray_pods }} | Running/Total |
+          | System Pods | ${{ steps.pods.outputs.system_pods }} | Kubernetes system |
+          
+          ## 💵 Cost Estimates
+          
+          | Period | Estimated Cost (USD) |
+          |--------|---------------------|
+          | Hourly | $${{ steps.costs.outputs.hourly_cost }} |
+          | Daily | $${{ steps.costs.outputs.daily_cost }} |
+          | Monthly | $${{ steps.costs.outputs.monthly_cost }} |
+          
+          ## 📈 Utilization Analysis
+          
+          - **CPU Utilization**: ${{ steps.utilization.outputs.cpu_utilization }}%
+          - **Idle Capacity**: ${{ steps.costs.outputs.idle_percent }}%
+          - **Idle Cost**: $${{ steps.costs.outputs.idle_cost_hourly }}/hour
+          
+          ## 💡 Optimization Opportunities
+          
+          **Recommendation**: ${{ steps.costs.outputs.recommendation }}
+          
+          **Potential Monthly Savings**: $${{ steps.costs.outputs.potential_monthly_savings }}
+          
+          ### Cost Optimization Strategies
+          
+          1. **Autoscaling Tuning**
+             - Current idle capacity: ${{ steps.costs.outputs.idle_percent }}%
+             - Consider reducing min nodes during off-peak hours
+             - Enable cluster autoscaler if not active
+          
+          2. **Spot Instances**
+             - CPU workloads can use spot instances for 70% savings
+             - Configure spot instance pools for better availability
+          
+          3. **Right-sizing**
+             - Review actual CPU requests vs limits
+             - Consider smaller instance types for Ray workers
+          
+          4. **Scheduling**
+             - Schedule non-critical workloads during off-peak
+             - Use node sleep/wake policies for dev environments
+          
+          ## 🎯 Current Configuration Benefits
+          
+          ✅ **GitHub App managed** - No long-lived credentials
+          ✅ **Autoscaling enabled** - Scales with workload demand
+          ✅ **Tagging strategy** - Full cost attribution
+          ✅ **Policy enforcement** - Resource limits via OPA
+          
+          ## 📝 Next Steps
+          
+          1. Review utilization trends over time
+          2. Adjust autoscaling thresholds if needed
+          3. Consider reserved instances for steady-state capacity
+          4. Monitor Ray job efficiency
+          
+          ---
+          *Report generated automatically by GitHub App*
+          *Next report: Tomorrow at 09:00 UTC*
+          EOF
+          
+          # Replace variables in report
+          sed -i "s/\$REPORT_DATE/$REPORT_DATE/g" cost-report.md
+          
+          cat cost-report.md
+      
+      - name: Upload Report Artifact
+        if: steps.cluster.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-report-$(date +%Y%m%d)
+          path: cost-report.md
+          retention-days: 90
+      
+      - name: Post Report as Issue
+        if: steps.cluster.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('cost-report.md', 'utf8');
+            
+            // Check if there's an open cost report issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'cost-report',
+              state: 'open',
+              per_page: 1
+            });
+            
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: report
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `💰 Cost Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['cost-report', 'infrastructure', 'finops']
+              });
+            }
+      
+      - name: No Cluster Found
+        if: steps.cluster.outputs.exists == 'false'
+        run: |
+          echo "ℹ️ No active cluster found. Skipping cost report."
+          echo "Deploy infrastructure first to enable cost reporting."

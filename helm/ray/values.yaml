@@ -1,0 +1,259 @@
+# Ray Cluster Configuration
+# Optimized for bursty ML workloads with autoscaling
+
+# Image configuration
+image:
+  repository: rayproject/ray
+  tag: 2.9.0-py310
+  pullPolicy: IfNotPresent
+
+# Head node configuration
+head:
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "8Gi"
+    limits:
+      cpu: "4"
+      memory: "16Gi"
+  
+  # Persistent storage for head node
+  volumeMounts:
+    - name: ray-storage
+      mountPath: /tmp/ray
+  
+  volumes:
+    - name: ray-storage
+      persistentVolumeClaim:
+        claimName: ray-head-storage
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    ports:
+      dashboard: 8265
+      client: 10001
+      redis: 6379
+  
+  # Labels and annotations
+  labels:
+    ray.io/node-type: head
+    app: ray
+    component: head
+  
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8265"
+  
+  # Environment variables
+  env:
+    - name: RAY_GRAFANA_HOST
+      value: "http://grafana:3000"
+    - name: RAY_PROMETHEUS_HOST
+      value: "http://prometheus:9090"
+
+# CPU Worker pool configuration
+cpuWorkers:
+  enabled: true
+  replicas: 3
+  minReplicas: 2
+  maxReplicas: 10
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  
+  # Node selector for CPU nodes
+  nodeSelector:
+    ray.io/resource-type: cpu
+  
+  # No tolerations needed (standard nodes)
+  tolerations: []
+  
+  labels:
+    ray.io/node-type: worker
+    ray.io/resource-type: cpu
+    app: ray
+    component: worker
+  
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 30
+          - type: Pods
+            value: 2
+            periodSeconds: 30
+
+# GPU Worker pool configuration
+gpuWorkers:
+  enabled: true
+  replicas: 0
+  minReplicas: 0
+  maxReplicas: 5
+  
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: "32Gi"
+      nvidia.com/gpu: "1"
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    ray.io/resource-type: gpu
+    nvidia.com/gpu: "true"
+  
+  # Toleration for GPU taints
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  
+  labels:
+    ray.io/node-type: worker
+    ray.io/resource-type: gpu
+    app: ray
+    component: gpu-worker
+  
+  # GPU autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 0
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 60
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 600
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 120
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 60
+
+# Ray Dashboard configuration
+dashboard:
+  enabled: true
+  
+  ingress:
+    enabled: false
+    annotations: {}
+    hosts: []
+    tls: []
+
+# Ray autoscaler configuration
+autoscaler:
+  enabled: true
+  
+  # Idle timeout before scaling down (seconds)
+  idleTimeoutSeconds: 60
+  
+  # Resource requests/limits for autoscaler
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ray-worker
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Will be set by Terraform
+
+# Security Context
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Pod Security Policy
+podSecurityPolicy:
+  enabled: false
+
+# Network Policy
+networkPolicy:
+  enabled: false
+
+# Monitoring
+monitoring:
+  enabled: true
+  
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Ray configuration
+rayConfig:
+  # Maximum number of workers
+  maxWorkers: 15
+  
+  # Upscaling speed
+  upscalingSpeed: 1.0
+  
+  # Idle timeout
+  idleTimeoutMinutes: 5
+  
+  # Resource requests
+  headNodeType: "head-node"
+  
+  # Available node types
+  availableNodeTypes:
+    cpu-worker:
+      minWorkers: 2
+      maxWorkers: 10
+      resources:
+        cpu: 4
+        memory: 8589934592  # 8Gi in bytes
+    
+    gpu-worker:
+      minWorkers: 0
+      maxWorkers: 5
+      resources:
+        cpu: 8
+        memory: 34359738368  # 32Gi in bytes
+        gpu: 1
+      nodeLabels:
+        nvidia.com/gpu: "true"
+
+# Additional volumes for shared storage
+additionalVolumes: []
+
+# Additional volume mounts
+additionalVolumeMounts: []
