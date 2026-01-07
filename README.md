@@ -248,7 +248,20 @@ aws iam attach-role-policy \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 ```
 
-### Step 3: Create Terraform State Backend
+### Step 3: Terraform State Configuration
+
+**Default: Local Backend (No Cost)**
+
+The repository is configured to use local state storage by default. The state file will be stored in `terraform/terraform.tfstate`.
+
+For local development or testing, no additional setup is required.
+
+**Optional: Remote Backend for Teams**
+
+If you're working in a team or need state locking, you can optionally configure a remote backend:
+
+<details>
+<summary>Click to expand S3 backend setup (optional)</summary>
 
 ```bash
 # S3 bucket for state
@@ -279,6 +292,19 @@ aws dynamodb create-table \
   --region us-east-1
 ```
 
+Then update `terraform/backend.tf` to use S3:
+```hcl
+backend "s3" {
+  bucket         = "YOUR_ORG-terraform-state"
+  key            = "terraform.tfstate"
+  region         = "us-east-1"
+  encrypt        = true
+  dynamodb_table = "terraform-state-lock"
+}
+```
+
+</details>
+
 ### Step 4: Configure GitHub Secrets
 
 Add the following secrets to your repository:
@@ -291,7 +317,8 @@ Add the following secrets to your repository:
 | `APP_PRIVATE_KEY` | Private key PEM | `-----BEGIN RSA PRIVATE KEY-----...` |
 | `INSTALLATION_ID` | Installation ID | `789012` |
 | `AWS_ROLE_ARN` | IAM role ARN | `arn:aws:iam::123456789012:role/GitHubActionsTerraformRole` |
-| `TF_STATE_BUCKET` | S3 bucket name | `myorg-terraform-state` |
+
+**Note:** `TF_STATE_BUCKET` is only needed if using S3 backend.
 
 ### Step 5: Customize Configuration
 
