@@ -47,12 +47,12 @@ jobs:
       - name: Check Secrets Configuration
         id: check-secrets
         run: |
-          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ] && [ -n "${{ secrets.TF_STATE_BUCKET }}" ]; then
+          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ]; then
             echo "secrets_configured=true" >> $GITHUB_OUTPUT
           else
             echo "secrets_configured=false" >> $GITHUB_OUTPUT
             echo "⚠️ AWS secrets not configured. Skipping AWS-dependent steps."
-            echo "ℹ️ To enable full functionality, configure: AWS_ROLE_ARN, TF_STATE_BUCKET, APP_ID, APP_PRIVATE_KEY"
+            echo "ℹ️ To enable full functionality, configure: AWS_ROLE_ARN, APP_ID, APP_PRIVATE_KEY"
           fi
       
       - name: Configure AWS Credentials
@@ -71,16 +71,6 @@ jobs:
       
       - name: Terraform Init
         id: init
-        if: steps.check-secrets.outputs.secrets_configured == 'true'
-        working-directory: ./terraform
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-            -backend-config="key=terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}"
-      
-      - name: Terraform Init (Local Backend)
-        if: steps.check-secrets.outputs.secrets_configured == 'false'
         working-directory: ./terraform
         run: terraform init
       
@@ -212,7 +202,8 @@ jobs:
             - \`APP_ID\` - GitHub App ID
             - \`APP_PRIVATE_KEY\` - GitHub App private key
             - \`AWS_ROLE_ARN\` - AWS IAM role for OIDC
-            - \`TF_STATE_BUCKET\` - S3 bucket for Terraform state
+            
+            **Note:** Terraform state uses local backend (no S3 required).
             
             See [README.md](../blob/main/README.md#quick-start) for setup instructions.
             

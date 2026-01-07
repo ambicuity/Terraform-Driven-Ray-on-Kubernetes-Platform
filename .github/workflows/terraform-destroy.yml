@@ -53,11 +53,7 @@ jobs:
       
       - name: Terraform Init
         working-directory: ./terraform
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-            -backend-config="key=terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}"
+        run: terraform init
       
       - name: Get Cluster Name
         id: cluster

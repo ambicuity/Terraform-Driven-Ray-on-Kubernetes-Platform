@@ -16,21 +16,11 @@ terraform {
     }
   }
 
-  # S3 backend for state management
-  # Configured via CLI arguments in GitHub Actions
-  backend "s3" {
-    # bucket = provided via -backend-config
-    # key    = provided via -backend-config
-    # region = provided via -backend-config
-    encrypt        = true
-    dynamodb_table = "terraform-state-lock"
-    
-    # Tags for state file
-    tags = {
-      ManagedBy   = "terraform"
-      Environment = "production"
-      Purpose     = "state-storage"
-    }
+  # Local backend for state management
+  # State file stored locally in terraform directory
+  # Note: For production use with teams, consider using remote backend (S3, GCS, Terraform Cloud)
+  backend "local" {
+    path = "terraform.tfstate"
   }
 }
 
