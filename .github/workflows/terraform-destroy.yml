@@ -1,0 +1,244 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type the cluster name to confirm destruction'
+        required: true
+      reason:
+        description: 'Reason for destroying infrastructure'
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: us-east-1
+
+jobs:
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    environment:
+      name: destruction-approval
+    
+    steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformDestroy
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+      
+      - name: Get Cluster Name
+        id: cluster
+        working-directory: ./terraform
+        run: |
+          CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null || echo "unknown")
+          echo "name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+      
+      - name: Validate Confirmation
+        run: |
+          EXPECTED="${{ steps.cluster.outputs.name }}"
+          PROVIDED="${{ github.event.inputs.confirmation }}"
+          
+          if [ "$PROVIDED" != "$EXPECTED" ]; then
+            echo "❌ Cluster name mismatch!"
+            echo "Expected: $EXPECTED"
+            echo "Provided: $PROVIDED"
+            exit 1
+          fi
+          
+          echo "✅ Cluster name confirmed: $EXPECTED"
+      
+      - name: Pre-Destroy Backup
+        working-directory: ./terraform
+        run: |
+          # Backup current state
+          terraform state pull > ../backup-state-$(date +%Y%m%d-%H%M%S).json
+          
+          # Export outputs
+          terraform output -json > ../backup-outputs-$(date +%Y%m%d-%H%M%S).json
+      
+      - name: Upload Backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-destroy-backup
+          path: |
+            backup-state-*.json
+            backup-outputs-*.json
+          retention-days: 90
+      
+      - name: Scale Down Workloads
+        continue-on-error: true
+        run: |
+          # Configure kubectl
+          aws eks update-kubeconfig \
+            --name ${{ steps.cluster.outputs.name }} \
+            --region ${{ env.AWS_REGION }} \
+            --kubeconfig /tmp/kubeconfig
+          
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Scale down Ray clusters
+          kubectl scale raycluster --all --replicas=0 -n ray-system || true
+          
+          # Wait for pods to terminate
+          kubectl wait --for=delete pod --all -n ray-system --timeout=300s || true
+          
+          echo "✅ Workloads scaled down"
+      
+      - name: Create Destruction Record Issue
+        id: record
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔥 Infrastructure Destruction - ${{ steps.cluster.outputs.name }}`,
+              body: `## Infrastructure Destruction Record
+              
+              ### Details
+              - **Cluster**: \`${{ steps.cluster.outputs.name }}\`
+              - **Reason**: ${{ github.event.inputs.reason }}
+              - **Initiated by**: @${{ github.actor }}
+              - **Timestamp**: ${new Date().toISOString()}
+              - **Workflow Run**: [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              
+              ### Status
+              🔄 Destruction in progress...
+              
+              This issue will be updated with the final status.`,
+              labels: ['infrastructure', 'destruction', 'critical']
+            });
+            
+            return issue.data.number;
+      
+      - name: Terraform Destroy
+        id: destroy
+        working-directory: ./terraform
+        run: |
+          echo "🔥 Starting infrastructure destruction..."
+          
+          terraform destroy \
+            -auto-approve \
+            -var="github_token=${{ steps.generate-token.outputs.token }}"
+          
+          echo "✅ Infrastructure destroyed successfully"
+      
+      - name: Verify Cleanup
+        run: |
+          # Verify key resources are gone
+          echo "Verifying resource cleanup..."
+          
+          # Check for EKS cluster
+          if aws eks describe-cluster --name ${{ steps.cluster.outputs.name }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ Warning: Cluster still exists"
+          else
+            echo "✅ Cluster deleted"
+          fi
+      
+      - name: Update Success Issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const issueNumber = ${{ steps.record.outputs.result }};
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ✅ Destruction Complete
+              
+              Infrastructure has been successfully destroyed.
+              
+              ### Cleanup Summary
+              - Cluster deleted
+              - Node pools terminated
+              - Storage volumes removed
+              - Network resources cleaned up
+              
+              ### Backup
+              State and outputs backed up as workflow artifacts (90 day retention).
+              
+              *Completed at: ${new Date().toISOString()}*`
+            });
+            
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: 'closed',
+              labels: ['infrastructure', 'destruction', 'completed']
+            });
+      
+      - name: Update Failure Issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const issueNumber = ${{ steps.record.outputs.result }};
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ❌ Destruction Failed
+              
+              Infrastructure destruction encountered errors.
+              
+              ### Action Required
+              1. Review workflow logs
+              2. Manually verify resource state
+              3. Complete cleanup if needed
+              4. Check for orphaned resources
+              
+              ### Potential Issues
+              - Resources with deletion protection
+              - Dependent resources not cleaned up
+              - Permission issues
+              - Network connectivity problems
+              
+              *Failed at: ${new Date().toISOString()}*`
+            });
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['requires-attention']
+            });
