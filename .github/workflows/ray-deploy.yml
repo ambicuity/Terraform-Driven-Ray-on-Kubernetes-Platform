@@ -1,0 +1,278 @@
+name: Ray Cluster Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Kubernetes cluster name'
+        required: true
+      region:
+        description: 'AWS region'
+        required: true
+        default: 'us-east-1'
+  workflow_call:
+    inputs:
+      cluster_name:
+        required: true
+        type: string
+      region:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  HELM_VERSION: '3.13.0'
+  RAY_VERSION: '2.9.0'
+
+jobs:
+  deploy-ray:
+    name: Deploy Ray Cluster
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.region }}
+          role-session-name: GitHubActions-RayDeploy
+      
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ inputs.cluster_name }} \
+            --region ${{ inputs.region }} \
+            --kubeconfig /tmp/kubeconfig
+          
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl version --client
+          kubectl cluster-info
+      
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+      
+      - name: Create Ray Namespace
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl create namespace ray-system --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label namespace ray-system ray.io/managed=true --overwrite
+      
+      - name: Add Ray Helm Repository
+        run: |
+          helm repo add kuberay https://ray-project.github.io/kuberay-helm/
+          helm repo update
+      
+      - name: Install KubeRay Operator
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          helm upgrade --install kuberay-operator kuberay/kuberay-operator \
+            --namespace ray-system \
+            --version 1.0.0 \
+            --wait \
+            --timeout 10m
+          
+          # Wait for operator to be ready
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/kuberay-operator -n ray-system
+      
+      - name: Deploy Ray Cluster
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          helm upgrade --install ray-cluster kuberay/ray-cluster \
+            --namespace ray-system \
+            --values helm/ray/values.yaml \
+            --set image.tag=${{ env.RAY_VERSION }} \
+            --set head.labels.managedBy=github-app \
+            --set head.labels.repo=${{ github.repository }} \
+            --set head.labels.commit=${{ github.sha }} \
+            --wait \
+            --timeout 15m
+      
+      - name: Verify Ray Cluster Health
+        id: verify
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          echo "Waiting for RayCluster to be ready..."
+          kubectl wait --for=condition=ready raycluster/ray-cluster \
+            -n ray-system \
+            --timeout=600s
+          
+          echo "Checking Ray head pod..."
+          kubectl wait --for=condition=ready pod \
+            -l ray.io/node-type=head \
+            -n ray-system \
+            --timeout=300s
+          
+          echo "Ray Cluster Status:"
+          kubectl get raycluster -n ray-system
+          kubectl get pods -n ray-system
+          
+          # Get Ray dashboard URL
+          HEAD_POD=$(kubectl get pod -n ray-system -l ray.io/node-type=head -o jsonpath='{.items[0].metadata.name}')
+          echo "head_pod=$HEAD_POD" >> $GITHUB_OUTPUT
+          
+          # Port forward to check dashboard (non-blocking)
+          kubectl port-forward -n ray-system $HEAD_POD 8265:8265 &
+          sleep 5
+          
+          # Check Ray dashboard
+          if curl -s http://localhost:8265/api/version | grep -q "ray"; then
+            echo "✅ Ray dashboard is accessible"
+            echo "dashboard_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Ray dashboard not accessible yet"
+            echo "dashboard_status=pending" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Get Cluster Metrics
+        id: metrics
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Count nodes
+          TOTAL_NODES=$(kubectl get nodes --no-headers | wc -l)
+          READY_NODES=$(kubectl get nodes --no-headers | grep " Ready" | wc -l)
+          
+          # Count Ray pods
+          RAY_PODS=$(kubectl get pods -n ray-system --no-headers | wc -l)
+          RUNNING_PODS=$(kubectl get pods -n ray-system --no-headers | grep "Running" | wc -l)
+          
+          echo "total_nodes=$TOTAL_NODES" >> $GITHUB_OUTPUT
+          echo "ready_nodes=$READY_NODES" >> $GITHUB_OUTPUT
+          echo "ray_pods=$RAY_PODS" >> $GITHUB_OUTPUT
+          echo "running_pods=$RUNNING_PODS" >> $GITHUB_OUTPUT
+          
+          echo "Cluster has $READY_NODES/$TOTAL_NODES nodes ready"
+          echo "Ray has $RUNNING_PODS/$RAY_PODS pods running"
+      
+      - name: Run Bursty Training Workload
+        id: workload
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Copy workload to head pod
+          HEAD_POD=${{ steps.verify.outputs.head_pod }}
+          kubectl cp workloads/bursty_training.py \
+            ray-system/$HEAD_POD:/tmp/bursty_training.py
+          
+          # Install dependencies
+          kubectl exec -n ray-system $HEAD_POD -- \
+            pip install numpy pandas
+          
+          # Run workload
+          echo "Starting bursty training workload..."
+          kubectl exec -n ray-system $HEAD_POD -- \
+            python /tmp/bursty_training.py > workload-output.log 2>&1
+          
+          echo "Workload completed, checking logs..."
+          cat workload-output.log
+      
+      - name: Capture Autoscaling Logs
+        if: always()
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          echo "=== Cluster Autoscaler Logs ==="
+          kubectl logs -n kube-system \
+            -l app=cluster-autoscaler \
+            --tail=100 \
+            --timestamps || echo "No autoscaler logs available"
+          
+          echo -e "\n=== KubeRay Operator Logs ==="
+          kubectl logs -n ray-system \
+            -l app.kubernetes.io/name=kuberay-operator \
+            --tail=100 \
+            --timestamps
+          
+          echo -e "\n=== Ray Head Logs ==="
+          kubectl logs -n ray-system ${{ steps.verify.outputs.head_pod }} \
+            --tail=100 \
+            --timestamps
+          
+          echo -e "\n=== Ray Worker Pods ==="
+          kubectl get pods -n ray-system -l ray.io/node-type=worker -o wide
+      
+      - name: Upload Workload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ray-workload-logs
+          path: workload-output.log
+          retention-days: 30
+      
+      - name: Create Deployment Summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            core.summary
+              .addHeading('Ray Cluster Deployment', 2)
+              .addTable([
+                [{data: 'Metric', header: true}, {data: 'Value', header: true}],
+                ['Cluster Name', '${{ inputs.cluster_name }}'],
+                ['Region', '${{ inputs.region }}'],
+                ['Nodes Ready', '${{ steps.metrics.outputs.ready_nodes }}/${{ steps.metrics.outputs.total_nodes }}'],
+                ['Ray Pods Running', '${{ steps.metrics.outputs.running_pods }}/${{ steps.metrics.outputs.ray_pods }}'],
+                ['Dashboard Status', '${{ steps.verify.outputs.dashboard_status }}'],
+                ['Workload Status', '${{ steps.workload.outcome }}']
+              ])
+              .addHeading('Next Steps', 3)
+              .addList([
+                'Access Ray dashboard via kubectl port-forward',
+                'Submit Ray jobs to the cluster',
+                'Monitor autoscaling behavior',
+                'Review cost reports'
+              ])
+              .write();
+      
+      - name: Post Success Issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `✅ Ray Cluster Deployed - ${{ inputs.cluster_name }}`,
+              body: `Ray cluster successfully deployed and validated!
+              
+              ### Cluster Details
+              - **Name**: \`${{ inputs.cluster_name }}\`
+              - **Region**: \`${{ inputs.region }}\`
+              - **Nodes**: ${{ steps.metrics.outputs.ready_nodes }}/${{ steps.metrics.outputs.total_nodes }} ready
+              - **Ray Pods**: ${{ steps.metrics.outputs.running_pods }}/${{ steps.metrics.outputs.ray_pods }} running
+              
+              ### Access Instructions
+              \`\`\`bash
+              aws eks update-kubeconfig --name ${{ inputs.cluster_name }} --region ${{ inputs.region }}
+              kubectl port-forward -n ray-system svc/ray-cluster-head-svc 8265:8265
+              # Access dashboard at http://localhost:8265
+              \`\`\`
+              
+              ### Workload Results
+              Bursty training workload completed: **${{ steps.workload.outcome }}**
+              
+              Logs available in workflow artifacts.`,
+              labels: ['ray', 'deployment', 'success']
+            });
