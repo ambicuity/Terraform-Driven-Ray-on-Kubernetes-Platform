@@ -1,0 +1,40 @@
+name: terraform-docs — Auto-Update README
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.tf'
+      - '.github/workflows/terraform-docs.yml'
+
+jobs:
+  docs:
+    name: Update README Inputs & Outputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # auto-commit updated README
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use a PAT or the default token — push back to the branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+
+      - name: Render terraform-docs (root module)
+        uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: .
+          output-file: README.md
+          output-method: inject
+          git-push: "true"
+          git-commit-message: "docs: auto-update terraform-docs [skip ci]"
+
+      - name: Render terraform-docs (examples/complete)
+        uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: examples/complete
+          output-file: README.md
+          output-method: inject
+          git-push: "true"
+          git-commit-message: "docs: auto-update examples/complete terraform-docs [skip ci]"

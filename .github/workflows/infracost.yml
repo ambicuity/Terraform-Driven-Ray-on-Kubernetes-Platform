@@ -1,0 +1,52 @@
+name: Infracost — Cost Estimate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.tf'
+
+jobs:
+  infracost:
+    name: Generate Cost Estimate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # post PR comment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      # Checkout the base branch to get the baseline cost
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: base-branch
+
+      - name: Generate Infracost baseline
+        run: |
+          infracost breakdown \
+            --path=base-branch \
+            --format=json \
+            --out-file=/tmp/infracost-base.json
+
+      - name: Generate Infracost diff
+        run: |
+          infracost diff \
+            --path=. \
+            --format=json \
+            --compare-to=/tmp/infracost-base.json \
+            --out-file=/tmp/infracost-diff.json
+
+      - name: Post Infracost comment
+        uses: infracost/actions/comment@v3
+        with:
+          path: /tmp/infracost-diff.json
+          # Show a single comment, update it on subsequent pushes
+          behavior: update

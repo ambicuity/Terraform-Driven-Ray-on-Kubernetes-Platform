@@ -1,6 +1,10 @@
 # Terraform Module: Ray on Kubernetes (EKS)
 
 [![Terraform Validate](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/terraform-ci.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/terraform-ci.yml)
+[![TFSec](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tfsec.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tfsec.yml)
+[![TFLint](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tflint.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tflint.yml)
+[![Checkov](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/checkov.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/checkov.yml)
+[![CodeQL](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/codeql.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A production-grade Terraform module for provisioning a robust, autoscaling Kubernetes (EKS) cluster optimized for Ray ML workloads. 

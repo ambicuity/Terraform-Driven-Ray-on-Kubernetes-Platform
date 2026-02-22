@@ -1,0 +1,28 @@
+name: PR Changelog Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  changelog:
+    name: Enforce Changelog Entry
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce CHANGELOG update
+        uses: dangoslen/changelog-enforcer@v3
+        with:
+          # Changelog file to check
+          changeLogPath: CHANGELOG.md
+          # Entries that bypass the check (bot PRs, docs-only, etc.)
+          skipLabels: 'skip-changelog,dependencies,documentation'
+          missingUpdateErrorMessage: >
+            Please add an entry to CHANGELOG.md describing your changes.
+            Format: `- <type>: <description> (#<PR number>)`

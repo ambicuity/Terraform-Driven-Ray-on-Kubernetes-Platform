@@ -1,0 +1,46 @@
+name: Stale Issue & PR Bot
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  stale:
+    name: Mark & Close Stale Items
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@v9
+        with:
+          # ── Issues ──────────────────────────────────────────────────
+          days-before-issue-stale: 30
+          days-before-issue-close: 7
+          stale-issue-label: 'stale'
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not
+            had any activity for 30 days. It will be closed in 7 days unless
+            further activity occurs. Comment or add the `keep-open` label to
+            prevent closure.
+          close-issue-message: >
+            This issue was automatically closed due to inactivity.
+            Please reopen if it is still relevant.
+          # ── Pull Requests ────────────────────────────────────────────
+          days-before-pr-stale: 14
+          days-before-pr-close: 7
+          stale-pr-label: 'stale'
+          stale-pr-message: >
+            This PR has been automatically marked as stale because it has not
+            had any activity for 14 days. It will be closed in 7 days unless
+            revived by a push, review, or comment.
+          close-pr-message: >
+            This PR was automatically closed due to inactivity. Please reopen
+            if you intend to continue the work.
+          # ── Global exemptions ────────────────────────────────────────
+          exempt-issue-labels: 'keep-open,pinned,security,in-progress'
+          exempt-pr-labels: 'keep-open,pinned,in-progress'
+          exempt-all-assignees: true

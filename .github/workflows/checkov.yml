@@ -1,0 +1,45 @@
+name: Checkov — Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.tf'
+      - 'helm/**'
+      - '.github/workflows/checkov.yml'
+
+jobs:
+  checkov:
+    name: Checkov Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload SARIF
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform,helm
+          # Upload results to GitHub Security tab
+          output_format: sarif
+          output_file_path: checkov.sarif
+          # Soft-fail so the workflow is informational, not blocking
+          soft_fail: true
+          # Skip known-acceptable checks for this module
+          skip_check: >-
+            CKV_AWS_149,
+            CKV_AWS_111,
+            CKV_AWS_355
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov.sarif
+          category: checkov
