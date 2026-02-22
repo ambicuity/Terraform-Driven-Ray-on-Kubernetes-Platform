@@ -29,6 +29,9 @@ jobs:
 
       - name: Terraform Validate (Root)
         run: terraform validate
+
+      - name: Terraform Test (Root)
+        run: terraform test
         
       - name: Terraform Init (Example)
         working-directory: examples/complete

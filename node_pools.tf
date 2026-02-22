@@ -12,6 +12,8 @@ resource "aws_eks_node_group" "cpu_workers" {
     min_size     = var.cpu_node_min_size
   }
 
+  capacity_type = var.cpu_capacity_type
+
   update_config {
     max_unavailable = 1
   }
@@ -98,6 +100,8 @@ resource "aws_eks_node_group" "gpu_workers" {
     max_size     = var.gpu_node_max_size
     min_size     = var.gpu_node_min_size
   }
+
+  capacity_type = var.gpu_capacity_type
 
   update_config {
     max_unavailable = 1

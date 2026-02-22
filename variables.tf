@@ -72,6 +72,44 @@ variable "cluster_endpoint_public_access" {
   default     = true
 }
 
+variable "eks_addons" {
+  description = "Map of EKS addons to enable"
+  type        = map(any)
+  default = {
+    vpc-cni = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+    kube-proxy = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+    coredns = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+  }
+}
+
+variable "eks_addons" {
+  description = "Map of EKS addons to enable"
+  type        = map(any)
+  default = {
+    vpc-cni = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+    kube-proxy = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+    coredns = {
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+    }
+  }
+}
+
 # Node Pool Configuration - CPU Workers
 variable "cpu_node_instance_types" {
   description = "Instance types for CPU worker nodes"
@@ -146,6 +184,18 @@ variable "gpu_node_desired_size" {
   description = "Desired number of GPU worker nodes"
   type        = number
   default     = 0
+}
+
+variable "cpu_capacity_type" {
+  description = "Capacity type for CPU worker nodes (ON_DEMAND or SPOT)"
+  type        = string
+  default     = "ON_DEMAND"
+}
+
+variable "gpu_capacity_type" {
+  description = "Capacity type for GPU worker nodes (ON_DEMAND or SPOT). Default is SPOT for cost optimization."
+  type        = string
+  default     = "SPOT"
 }
 
 # Storage

@@ -230,18 +230,18 @@ resource "aws_iam_role_policy_attachment" "node_ebs_csi" {
   role       = aws_iam_role.node.name
 }
 
-# Ray Namespace
-resource "kubernetes_namespace" "ray" {
-  count = 1
+# EKS Addons
+resource "aws_eks_addon" "addons" {
+  for_each = var.eks_addons
 
-  metadata {
-    name = var.ray_namespace
-    labels = {
-      name       = var.ray_namespace
-      managed-by = "terraform"
-      purpose    = "ray-ml-workloads"
-    }
-  }
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = each.key
+  addon_version               = try(each.value.addon_version, null)
+  resolve_conflicts_on_create = try(each.value.resolve_conflicts_on_create, "OVERWRITE")
+  resolve_conflicts_on_update = try(each.value.resolve_conflicts_on_update, "OVERWRITE")
+  service_account_role_arn    = try(each.value.service_account_role_arn, null)
 
-  depends_on = [aws_eks_cluster.main]
+  depends_on = [
+    aws_eks_node_group.cpu_workers,
+  ]
 }
