@@ -1,0 +1,31 @@
+name: Gemini AI Issue Solver
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  solve:
+    name: AI Issue Analysis
+    runs-on: ubuntu-latest
+    # Skip issues with 'skip-ai' label
+    if: ${{ !contains(github.event.issue.labels.*.name, 'skip-ai') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Gemini Issue Solver
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/ai_issue_solver.py

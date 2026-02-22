@@ -17,6 +17,7 @@ Environment variables required:
 import os
 import sys
 import json
+import time
 import urllib.request
 import urllib.error
 
@@ -27,7 +28,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 PR_NUMBER = os.environ.get("PR_NUMBER", "")
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3-flash-preview"
 MAX_DIFF_CHARS = 60000  # Truncate very large diffs to stay within token limits
 
 SYSTEM_PROMPT = """You are an expert Senior Principal Engineer performing a code review on a Pull Request
@@ -158,7 +159,6 @@ def call_gemini(diff: str, metadata: dict) -> str:
                     f"(attempt {attempt + 1}/{max_retries})...",
                     file=sys.stderr,
                 )
-                import time
                 time.sleep(delay)
                 continue
             print(f"Gemini API error: {e.code} — {body}", file=sys.stderr)
