@@ -97,13 +97,10 @@ jobs:
                 break;
 
               case '/plan':
-                await react('eyes');
-                await reply(
-                  '🤖 **AI Solution Plan requested.**\n\n' +
-                  'The AI Issue Solver runs automatically on new issues. ' +
-                  'If you need a fresh analysis, close and reopen this issue, ' +
-                  'or comment `/replan` to trigger a new analysis.'
-                );
+              case '/replan':
+                if (isPR) { await reply('⚠️ `/plan` and `/replan` only work on Issues. Use `/ai-review` for PRs.'); break; }
+                await react('rocket');
+                await reply('🤖 **AI Solution Plan triggered.** Gemini is analyzing this issue — expect a response in ~30 seconds.');
                 break;
 
               // --- Assignment ---
@@ -248,7 +245,8 @@ jobs:
                   '| Command | Description |\n|---|---|\n' +
                   '| `/ai-review` | Trigger AI code review (PRs only) |\n' +
                   '| `/ai-tests` | Trigger AI test suggestions (PRs only) |\n' +
-                  '| `/plan` | Request an AI solution plan |\n\n' +
+                  '| `/plan` | Generate AI solution plan (Issues only) |\n' +
+                  '| `/replan` | Re-generate a fresh AI solution plan |\n\n' +
                   '### Workflow\n' +
                   '| Command | Description |\n|---|---|\n' +
                   '| `/assign [@user]` | Assign issue/PR (defaults to you) |\n' +

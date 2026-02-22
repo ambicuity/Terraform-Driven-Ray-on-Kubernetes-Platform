@@ -3,6 +3,8 @@ name: Gemini AI Issue Solver
 on:
   issues:
     types: [opened]
+  issue_comment:
+    types: [created]
 
 permissions:
   issues: write
@@ -12,8 +14,16 @@ jobs:
   solve:
     name: AI Issue Analysis
     runs-on: ubuntu-latest
-    # Skip issues with 'skip-ai' label
-    if: ${{ !contains(github.event.issue.labels.*.name, 'skip-ai') }}
+    # Triggers:
+    #   1. New issue opened (no skip-ai label), OR
+    #   2. Someone comments /plan or /replan on an issue (not a PR)
+    if: |
+      (github.event_name == 'issues' &&
+       !contains(github.event.issue.labels.*.name, 'skip-ai')) ||
+      (github.event_name == 'issue_comment' &&
+       !github.event.issue.pull_request &&
+       (contains(github.event.comment.body, '/plan') ||
+        contains(github.event.comment.body, '/replan')))
     steps:
       - uses: actions/checkout@v4
 
@@ -22,10 +32,19 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Resolve issue number
+        id: issue
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Gemini Issue Solver
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python scripts/ai_issue_solver.py
