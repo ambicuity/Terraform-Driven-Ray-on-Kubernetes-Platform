@@ -37,3 +37,18 @@ jobs:
       - name: Terraform Validate (Example)
         working-directory: examples/complete
         run: terraform validate
+        
+  opa-test:
+    name: OPA Policy Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+          version: latest
+          
+      - name: Run OPA Tests
+        working-directory: policies
+        run: opa test . -v
