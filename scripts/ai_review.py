@@ -97,7 +97,7 @@ def fetch_pr_metadata() -> dict:
 
 
 def call_gemini(diff: str, metadata: dict) -> str:
-    """Send the diff to Gemini and get a review."""
+    """Send the diff to Gemini and get a review, with retry on rate limits."""
     pr_context = (
         f"PR Title: {metadata.get('title', 'N/A')}\n"
         f"PR Author: {metadata.get('user', {}).get('login', 'N/A')}\n"
@@ -128,26 +128,43 @@ def call_gemini(diff: str, metadata: dict) -> str:
         f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     )
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    max_retries = 3
+    backoff_delays = [10, 30, 60]  # seconds
 
-    try:
-        with urllib.request.urlopen(req) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            candidates = result.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    return parts[0].get("text", "No response generated.")
-            return "Gemini returned an empty response."
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(f"Gemini API error: {e.code} — {body}", file=sys.stderr)
-        return f"⚠️ Gemini API returned an error: {e.code}"
+    for attempt in range(max_retries + 1):
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                candidates = result.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "No response generated.")
+                return "Gemini returned an empty response."
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            # Retry on rate limit (429) or server errors (500, 503)
+            if e.code in (429, 500, 503) and attempt < max_retries:
+                delay = backoff_delays[attempt]
+                print(
+                    f"Gemini API {e.code} — retrying in {delay}s "
+                    f"(attempt {attempt + 1}/{max_retries})...",
+                    file=sys.stderr,
+                )
+                import time
+                time.sleep(delay)
+                continue
+            print(f"Gemini API error: {e.code} — {body}", file=sys.stderr)
+            return f"⚠️ Gemini API returned an error: {e.code}"
+
+    return "⚠️ Gemini API failed after all retries."
 
 
 def post_comment(body: str) -> None:
