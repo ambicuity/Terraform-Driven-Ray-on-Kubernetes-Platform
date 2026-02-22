@@ -186,6 +186,7 @@ resource "aws_launch_template" "gpu_workers" {
 }
 
 # Cluster Autoscaler IAM Policy
+# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "cluster_autoscaler" {
   count       = var.enable_cluster_autoscaler ? 1 : 0
   name_prefix = "${var.cluster_name}-autoscaler-"

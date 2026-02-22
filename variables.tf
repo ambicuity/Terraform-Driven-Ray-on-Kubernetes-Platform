@@ -22,13 +22,7 @@ variable "cluster_name" {
   default     = "ray-ml-cluster"
 }
 
-# GitHub App Integration
-variable "github_token" {
-  description = "GitHub App installation token (short-lived)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+
 
 variable "repo_name" {
   description = "GitHub repository name for resource tagging"
@@ -69,7 +63,7 @@ variable "kms_key_arn" {
 variable "cluster_endpoint_public_access" {
   description = "Enable public access to cluster endpoint"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "eks_addons" {
@@ -205,11 +199,7 @@ variable "enable_ebs_csi_driver" {
   default     = true
 }
 
-variable "storage_class_name" {
-  description = "Name of the storage class for Ray persistent storage"
-  type        = string
-  default     = "ray-storage"
-}
+
 
 # Autoscaling
 variable "enable_cluster_autoscaler" {
@@ -218,18 +208,9 @@ variable "enable_cluster_autoscaler" {
   default     = true
 }
 
-variable "autoscaler_scale_down_delay" {
-  description = "Delay before scaling down unused nodes (minutes)"
-  type        = number
-  default     = 10
-}
 
-# Ray Configuration
-variable "ray_namespace" {
-  description = "Kubernetes namespace for Ray deployments"
-  type        = string
-  default     = "ray-system"
-}
+
+
 
 # Monitoring
 variable "enable_cloudwatch_logs" {
@@ -251,9 +232,4 @@ variable "tags" {
   default     = {}
 }
 
-# Cost Management
-variable "enable_cost_allocation_tags" {
-  description = "Enable detailed cost allocation tags"
-  type        = bool
-  default     = true
-}
+

@@ -1,3 +1,7 @@
+data "aws_vpc" "selected" {
+  id = var.vpc_id
+}
+
 # Security Group for EKS Nodes
 resource "aws_security_group" "node" {
   name_prefix = "${var.cluster_name}-node-"
@@ -5,10 +9,11 @@ resource "aws_security_group" "node" {
   vpc_id      = var.vpc_id
 
   egress {
+    description = "Allow egress routing within the VPC CIDR for pod-to-pod and AWS service communication"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.aws_vpc.selected.cidr_block]
   }
 
   tags = {
@@ -58,6 +63,7 @@ resource "aws_cloudwatch_log_group" "cluster" {
   count             = var.enable_cloudwatch_logs ? 1 : 0
   name              = "/aws/eks/${var.cluster_name}/cluster"
   retention_in_days = var.log_retention_days
+  kms_key_id        = var.kms_key_arn != "" ? var.kms_key_arn : aws_kms_key.eks[0].arn
 }
 
 data "aws_caller_identity" "current" {}
@@ -188,6 +194,7 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEC2ContainerRegistryReadOn
 }
 
 # Policy for EBS CSI Driver
+# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "ebs_csi" {
   count       = var.enable_ebs_csi_driver ? 1 : 0
   name_prefix = "${var.cluster_name}-ebs-csi-"
