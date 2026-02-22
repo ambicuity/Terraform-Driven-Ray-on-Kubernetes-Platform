@@ -8,7 +8,7 @@ data "aws_eks_cluster_auth" "cluster" {
 
 provider "kubernetes" {
   host                   = module.ray_eks_cluster.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.ray_eks_cluster.cluster_certificate_authority_data)
+  cluster_ca_certificate = base64decode(module.ray_eks_cluster.cluster_certificate_authority)
   token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
