@@ -1,0 +1,28 @@
+name: Kube-score — Helm Chart Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'helm/**'
+      - '.github/workflows/kube-score.yml'
+
+jobs:
+  kube-score:
+    name: Kube-score Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Run Kube-score
+        run: |
+          # Render the Helm chart and pipe to kube-score
+          # We ignore some scores that might be too strict for a base module
+          # but provide visibility into security/resiliency gaps.
+          helm template ./helm/ray | docker run --rm -i zegl/kube-score:latest score - \
+            --ignore-test container-security-context-user-group-id,container-security-context-readonly-root-filesystem
