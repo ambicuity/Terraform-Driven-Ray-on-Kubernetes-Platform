@@ -3,8 +3,7 @@
 
 package terraform
 
-import future.keywords.if
-import future.keywords.in
+import rego.v1
 
 # Default deny
 default allow = false
@@ -42,7 +41,7 @@ allowed_gpu_instance_types := [
 ]
 
 # Deny if region is not allowed
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_cluster"
     resource := input.resource_changes[_]
     region := input.variables.region.value
@@ -51,7 +50,7 @@ deny[msg] {
 }
 
 # Deny if CPU node count exceeds maximum
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     contains(resource.name, "cpu")
@@ -61,7 +60,7 @@ deny[msg] {
 }
 
 # Deny if GPU node count exceeds maximum
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     contains(resource.name, "gpu")
@@ -71,7 +70,7 @@ deny[msg] {
 }
 
 # Deny if using disallowed CPU instance type
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     contains(resource.name, "cpu")
@@ -82,7 +81,7 @@ deny[msg] {
 }
 
 # Deny if using disallowed GPU instance type
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     contains(resource.name, "gpu")
@@ -93,7 +92,7 @@ deny[msg] {
 }
 
 # Require encryption for EBS volumes
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_launch_template"
     resource := input.resource_changes[_]
     block_devices := resource.change.after.block_device_mappings
@@ -105,7 +104,7 @@ deny[msg] {
 # Require tags on all resources
 required_tags := ["ManagedBy", "Environment", "Repository"]
 
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type in ["aws_eks_cluster", "aws_eks_node_group"]
     resource := input.resource_changes[_]
     tags := object.get(resource.change.after, "tags", {})
@@ -115,7 +114,7 @@ deny[msg] {
 }
 
 # Require VPC endpoint access controls
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_cluster"
     resource := input.resource_changes[_]
     vpc_config := resource.change.after.vpc_config[0]
@@ -125,7 +124,7 @@ deny[msg] {
 }
 
 # Require CloudWatch logging
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_cluster"
     resource := input.resource_changes[_]
     log_types := object.get(resource.change.after, "enabled_cluster_log_types", [])
@@ -134,7 +133,7 @@ deny[msg] {
 }
 
 # Require IMDSv2 for EC2 instances
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_launch_template"
     resource := input.resource_changes[_]
     metadata := resource.change.after.metadata_options[0]
@@ -145,7 +144,7 @@ deny[msg] {
 # Storage limits
 max_storage_size_gb := 500
 
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_launch_template"
     resource := input.resource_changes[_]
     block_devices := resource.change.after.block_device_mappings
@@ -156,7 +155,7 @@ deny[msg] {
 }
 
 # Cost optimization: Require autoscaling
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     scaling := resource.change.after.scaling_config[0]
@@ -165,7 +164,7 @@ deny[msg] {
 }
 
 # Security: Require private subnets for node groups
-deny[msg] {
+deny contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     subnet_ids := resource.change.after.subnet_ids
@@ -180,7 +179,7 @@ allow if {
 }
 
 # Warnings (non-blocking)
-warn[msg] {
+warn contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     desired := resource.change.after.scaling_config[0].desired_size
@@ -189,7 +188,7 @@ warn[msg] {
     msg := sprintf("Warning: Node group '%s' desired size equals max size. This prevents scale-up.", [resource.name])
 }
 
-warn[msg] {
+warn contains msg if {
     input.resource_changes[_].type == "aws_eks_node_group"
     resource := input.resource_changes[_]
     contains(resource.name, "gpu")

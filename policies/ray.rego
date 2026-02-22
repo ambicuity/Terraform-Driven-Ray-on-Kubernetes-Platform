@@ -3,8 +3,7 @@
 
 package ray
 
-import future.keywords.if
-import future.keywords.in
+import rego.v1
 
 # Default configurations
 default allow = false
@@ -29,7 +28,7 @@ required_labels := [
 ]
 
 # Deny if worker requests exceed maximum CPU
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     cpu := parse_value(worker_group.template.spec.containers[0].resources.requests.cpu)
@@ -38,7 +37,7 @@ deny[msg] {
 }
 
 # Deny if worker requests exceed maximum memory
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     memory_str := worker_group.template.spec.containers[0].resources.requests.memory
@@ -48,21 +47,16 @@ deny[msg] {
     msg := sprintf("Worker group '%s' requests %dGi memory, exceeds limit of %dGi", [worker_group.groupName, memory_gb, max_memory_gb_per_worker])
 }
 
-# Helper rules for array computation
-get_max_workers[i] = w.maxReplicas {
-    w := input.spec.workerGroupSpecs[i]
-}
-
 # Deny if total workers exceed limit
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
-    total_max_workers := sum(get_max_workers)
+    total_max_workers := sum([ w.maxReplicas | some w in input.spec.workerGroupSpecs ])
     total_max_workers > max_total_workers
     msg := sprintf("Total max workers (%d) exceeds cluster limit (%d)", [total_max_workers, max_total_workers])
 }
 
 # Deny if GPU request exceeds limit per worker
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     gpu := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
@@ -70,22 +64,17 @@ deny[msg] {
     msg := sprintf("Worker group '%s' requests %d GPUs, exceeds limit of %d", [worker_group.groupName, gpu, max_gpu_per_worker])
 }
 
-get_gpu_counts[i] = count {
-    w := input.spec.workerGroupSpecs[i]
-    gpu_req := w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]
-    count := w.maxReplicas * parse_value(gpu_req)
-}
-
 # Deny if total GPU count exceeds limit
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
-    total_gpus := sum(get_gpu_counts)
+    gpu_workers := [w | some w in input.spec.workerGroupSpecs; w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]]
+    total_gpus := sum([w.maxReplicas * parse_value(w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]) | some w in gpu_workers])
     total_gpus > max_total_gpus
     msg := sprintf("Total max GPUs (%d) exceeds cluster limit (%d)", [total_gpus, max_total_gpus])
 }
 
 # Deny if missing required labels
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     labels := object.get(input.metadata, "labels", {})
     required_label := required_labels[_]
@@ -94,7 +83,7 @@ deny[msg] {
 }
 
 # Deny if resource requests are too small
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     cpu := parse_value(worker_group.template.spec.containers[0].resources.requests.cpu)
@@ -103,7 +92,7 @@ deny[msg] {
 }
 
 # Deny if memory requests are too small
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     memory_str := worker_group.template.spec.containers[0].resources.requests.memory
@@ -114,7 +103,7 @@ deny[msg] {
 }
 
 # Require GPU tolerations for GPU workers
-deny[msg] {
+deny contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     gpu_requested := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
@@ -130,7 +119,7 @@ has_gpu_toleration(tolerations) if {
 }
 
 # Require resource limits match requests (QoS Guaranteed)
-warn[msg] {
+warn contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     requests := worker_group.template.spec.containers[0].resources.requests
@@ -140,7 +129,7 @@ warn[msg] {
 }
 
 # Warn if autoscaling disabled
-warn[msg] {
+warn contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     min_replicas := worker_group.minReplicas
@@ -150,7 +139,7 @@ warn[msg] {
 }
 
 # Warn if GPU nodes have minReplicas > 0
-warn[msg] {
+warn contains msg if {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
     gpu := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
