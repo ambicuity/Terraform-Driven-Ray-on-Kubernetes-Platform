@@ -1,0 +1,50 @@
+name: Python Lint — Pylint, Flake8, Mypy
+
+on:
+  push:
+    branches: [main]
+    paths: ['workloads/**/*.py', 'scripts/**/*.py']
+  pull_request:
+    branches: [main]
+    paths: ['workloads/**/*.py', 'scripts/**/*.py']
+
+jobs:
+  lint:
+    name: Python Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint flake8 mypy numpy ray types-requests
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Flake8
+        run: |
+          flake8 workloads/ scripts/ \
+            --max-line-length=120 \
+            --extend-ignore=E203,W503 \
+            --statistics \
+            --count
+        continue-on-error: true
+
+      - name: Run Pylint
+        run: |
+          pylint workloads/ scripts/ \
+            --disable=C0114,C0115,C0116,R0903 \
+            --max-line-length=120 \
+            --fail-under=7.0 || true
+
+      - name: Run Mypy
+        run: |
+          mypy workloads/ scripts/ \
+            --ignore-missing-imports \
+            --no-strict-optional \
+            --allow-untyped-defs || true

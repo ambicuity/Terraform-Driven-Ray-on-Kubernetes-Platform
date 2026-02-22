@@ -1,0 +1,41 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+categories:
+  - title: '🚀 Features'
+    labels: ['feat', 'feature', 'enhancement']
+  - title: '🐛 Bug Fixes'
+    labels: ['fix', 'bugfix', 'bug']
+  - title: '🔒 Security'
+    labels: ['security']
+  - title: '🏗️ Infrastructure'
+    labels: ['ci', 'infra', 'terraform']
+  - title: '📖 Documentation'
+    labels: ['docs', 'documentation']
+  - title: '🧹 Maintenance'
+    labels: ['chore', 'dependencies']
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+version-resolver:
+  major:
+    labels: ['major', 'breaking']
+  minor:
+    labels: ['feat', 'feature', 'enhancement']
+  patch:
+    labels: ['fix', 'bugfix', 'bug', 'chore', 'docs']
+  default: patch
+autolabeler:
+  - label: 'feat'
+    title: ['/^feat/i']
+  - label: 'fix'
+    title: ['/^fix/i']
+  - label: 'ci'
+    title: ['/^ci/i']
+  - label: 'docs'
+    title: ['/^docs/i']
+  - label: 'chore'
+    title: ['/^chore/i']

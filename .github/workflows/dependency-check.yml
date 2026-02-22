@@ -1,0 +1,52 @@
+name: Dependency Security Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly on Mondays
+  push:
+    branches: [main]
+    paths: ['requirements.txt', 'workloads/**/*.py']
+  pull_request:
+    branches: [main]
+    paths: ['requirements.txt']
+
+jobs:
+  audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt --desc --fix --dry-run || true
+          else
+            echo "No requirements.txt found — scanning installed packages"
+            pip install numpy ray
+            pip-audit --desc || true
+          fi
+
+      - name: Validate Ray version compatibility
+        run: |
+          python -c "
+          import importlib.metadata as meta
+          try:
+              ray_ver = meta.version('ray')
+              print(f'✅ Ray version: {ray_ver}')
+              major, minor = map(int, ray_ver.split('.')[:2])
+              if major >= 2 and minor >= 9:
+                  print('✅ Ray version is compatible with KubeRay operator')
+              else:
+                  print('⚠️  Ray version may have compatibility issues with KubeRay')
+          except meta.PackageNotFoundError:
+              print('ℹ️  Ray not installed — skipping compatibility check')
+          "

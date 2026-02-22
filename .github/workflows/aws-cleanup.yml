@@ -1,0 +1,113 @@
+name: AWS Resource Cleanup Scanner
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'  # Weekly Sundays at 6 AM UTC
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  issues: write
+
+jobs:
+  scan:
+    name: Scan Orphaned Resources
+    runs-on: ubuntu-latest
+    if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install boto3
+        run: pip install boto3
+
+      - name: Scan for orphaned resources
+        id: scan
+        run: |
+          python -c "
+          import boto3
+          import json
+
+          findings = []
+
+          # Check for unattached EBS volumes
+          ec2 = boto3.client('ec2')
+          volumes = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['available']}])
+          for vol in volumes.get('Volumes', []):
+              findings.append({
+                  'type': 'Unattached EBS Volume',
+                  'id': vol['VolumeId'],
+                  'size': f\"{vol['Size']} GiB\",
+                  'created': vol['CreateTime'].isoformat()
+              })
+
+          # Check for unused Elastic IPs
+          eips = ec2.describe_addresses()
+          for eip in eips.get('Addresses', []):
+              if 'AssociationId' not in eip:
+                  findings.append({
+                      'type': 'Unused Elastic IP',
+                      'id': eip.get('AllocationId', 'N/A'),
+                      'ip': eip.get('PublicIp', 'N/A')
+                  })
+
+          # Check for empty security groups (no instances)
+          sgs = ec2.describe_security_groups()
+          for sg in sgs.get('SecurityGroups', []):
+              if sg['GroupName'] != 'default':
+                  enis = ec2.describe_network_interfaces(
+                      Filters=[{'Name': 'group-id', 'Values': [sg['GroupId']]}]
+                  )
+                  if not enis.get('NetworkInterfaces', []):
+                      findings.append({
+                          'type': 'Unused Security Group',
+                          'id': sg['GroupId'],
+                          'name': sg['GroupName']
+                      })
+
+          if findings:
+              report = '## 🧹 AWS Orphaned Resource Report\n\n'
+              report += f'**{len(findings)} orphaned resource(s) found:**\n\n'
+              report += '| Type | ID | Details |\n|---|---|---|\n'
+              for f in findings:
+                  details = ' | '.join(f'{k}: {v}' for k, v in f.items() if k not in ['type', 'id'])
+                  report += f\"| {f['type']} | \`{f['id']}\` | {details} |\n\"
+              report += '\n> ⚠️ **Action required**: Review and delete these resources to reduce costs.\n'
+              report += '> This is a report-only scan. No resources were modified.\n'
+          else:
+              report = '## ✅ AWS Resource Scan — Clean\n\nNo orphaned resources detected.'
+
+          with open('report.md', 'w') as fh:
+              fh.write(report)
+
+          print(report)
+          # Set output for issue creation
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f'has_findings={\"true\" if findings else \"false\"}\n')
+          "
+
+      - name: Create issue if findings exist
+        if: steps.scan.outputs.has_findings == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('report.md', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🧹 AWS Orphaned Resource Report',
+              body: report,
+              labels: ['infrastructure', 'cost-optimization']
+            });

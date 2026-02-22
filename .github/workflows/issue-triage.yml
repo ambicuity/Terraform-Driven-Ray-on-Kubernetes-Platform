@@ -1,0 +1,90 @@
+name: Issue Triage Bot
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    name: Auto-label Issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label based on title keywords
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const text = title + ' ' + body;
+            const labels = [];
+
+            // Bug indicators
+            if (/\b(bug|error|crash|fail|broken|not working|issue)\b/.test(text)) {
+              labels.push('bug');
+            }
+            // Feature indicators
+            if (/\b(feature|request|enhancement|add|support|implement)\b/.test(text)) {
+              labels.push('enhancement');
+            }
+            // Documentation
+            if (/\b(doc|documentation|readme|typo|example)\b/.test(text)) {
+              labels.push('documentation');
+            }
+            // Security
+            if (/\b(security|vulnerability|cve|exploit|auth|secret)\b/.test(text)) {
+              labels.push('security');
+            }
+            // Infrastructure / Terraform
+            if (/\b(terraform|eks|aws|vpc|iam|node.?group|infra)\b/.test(text)) {
+              labels.push('infrastructure');
+            }
+            // Ray / ML
+            if (/\b(ray|kuberay|gpu|training|ml|model|worker)\b/.test(text)) {
+              labels.push('ray');
+            }
+            // CI / CD
+            if (/\b(ci|cd|github.?action|workflow|pipeline|lint)\b/.test(text)) {
+              labels.push('ci');
+            }
+            // Question
+            if (/\b(question|how to|help|where|what|why)\b/.test(text)) {
+              labels.push('question');
+            }
+
+            if (labels.length > 0) {
+              // Ensure labels exist
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.getLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label
+                  });
+                } catch {
+                  const colors = {
+                    bug: 'd73a4a', enhancement: 'a2eeef', documentation: '0075ca',
+                    security: 'e4e669', infrastructure: '1d76db', ray: 'f9d0c4',
+                    ci: 'bfdadc', question: 'd876e3'
+                  };
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label,
+                    color: colors[label] || 'ededed'
+                  });
+                }
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels
+              });
+
+              console.log(`Applied labels: ${labels.join(', ')}`);
+            }
