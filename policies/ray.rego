@@ -50,7 +50,7 @@ deny contains msg if {
 # Deny if total workers exceed limit
 deny contains msg if {
     input.kind == "RayCluster"
-    total_max_workers := sum([ w.maxReplicas | some w in input.spec.workerGroupSpecs ])
+    total_max_workers := sum([ input.spec.workerGroupSpecs[i].maxReplicas | input.spec.workerGroupSpecs[i] ])
     total_max_workers > max_total_workers
     msg := sprintf("Total max workers (%d) exceeds cluster limit (%d)", [total_max_workers, max_total_workers])
 }
@@ -68,7 +68,7 @@ deny contains msg if {
 deny contains msg if {
     input.kind == "RayCluster"
     gpu_workers := [w | some w in input.spec.workerGroupSpecs; w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]]
-    total_gpus := sum([w.maxReplicas * parse_value(w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]) | some w in gpu_workers])
+    total_gpus := sum([gpu_workers[i].maxReplicas * parse_value(gpu_workers[i].template.spec.containers[0].resources.requests["nvidia.com/gpu"]) | gpu_workers[i]])
     total_gpus > max_total_gpus
     msg := sprintf("Total max GPUs (%d) exceeds cluster limit (%d)", [total_gpus, max_total_gpus])
 }
