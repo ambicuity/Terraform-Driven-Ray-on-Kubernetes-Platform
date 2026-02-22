@@ -137,14 +137,14 @@ output "access_instructions" {
   description = "Instructions to access the cluster"
   value       = <<-EOT
     1. Configure kubectl:
-       ${output.kubeconfig_command.value}
+       aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${var.region}
     
     2. Verify cluster access:
        kubectl cluster-info
        kubectl get nodes
     
     3. Access Ray dashboard:
-       kubectl port-forward -n ${output.ray_namespace.value} svc/ray-cluster-head-svc 8265:8265
+       kubectl port-forward -n ray-system svc/ray-cluster-head-svc 8265:8265
        Open: http://localhost:8265
     
     4. Deploy Ray cluster:
