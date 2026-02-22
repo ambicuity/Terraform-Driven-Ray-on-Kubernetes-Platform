@@ -85,7 +85,7 @@ resource "aws_kms_key" "eks" {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action   = "kms:*"
-        Resource   = "*"
+        Resource = "*"
       },
       {
         Sid    = "Allow EKS Control Plane to use the key"

@@ -27,7 +27,7 @@ resource "aws_eks_node_group" "cpu_workers" {
   }
 
   tags = {
-    Name                     = "${var.cluster_name}-cpu-workers"
+    Name                                            = "${var.cluster_name}-cpu-workers"
     "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
     "k8s.io/cluster-autoscaler/enabled"             = var.enable_cluster_autoscaler ? "true" : "false"
   }
@@ -71,17 +71,17 @@ resource "aws_launch_template" "cpu_workers" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name       = "${var.cluster_name}-cpu-worker"
-      NodeGroup  = "cpu-workers"
-      ManagedBy  = "github-app"
+      Name      = "${var.cluster_name}-cpu-worker"
+      NodeGroup = "cpu-workers"
+      ManagedBy = "github-app"
     }
   }
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    cluster_name        = var.cluster_name
-    cluster_endpoint    = aws_eks_cluster.main.endpoint
-    cluster_ca          = aws_eks_cluster.main.certificate_authority[0].data
-    node_group_name     = "cpu-workers"
+    cluster_name     = var.cluster_name
+    cluster_endpoint = aws_eks_cluster.main.endpoint
+    cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
+    node_group_name  = "cpu-workers"
   }))
 }
 
@@ -124,7 +124,7 @@ resource "aws_eks_node_group" "gpu_workers" {
   }
 
   tags = {
-    Name                     = "${var.cluster_name}-gpu-workers"
+    Name                                            = "${var.cluster_name}-gpu-workers"
     "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
     "k8s.io/cluster-autoscaler/enabled"             = var.enable_cluster_autoscaler ? "true" : "false"
   }
@@ -178,10 +178,10 @@ resource "aws_launch_template" "gpu_workers" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user-data-gpu.sh", {
-    cluster_name        = var.cluster_name
-    cluster_endpoint    = aws_eks_cluster.main.endpoint
-    cluster_ca          = aws_eks_cluster.main.certificate_authority[0].data
-    node_group_name     = "gpu-workers"
+    cluster_name     = var.cluster_name
+    cluster_endpoint = aws_eks_cluster.main.endpoint
+    cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
+    node_group_name  = "gpu-workers"
   }))
 }
 

@@ -47,9 +47,9 @@ module "ray_eks_cluster" {
 
   cluster_name = var.cluster_name
   region       = var.region
-  
-  vpc_id       = module.vpc.vpc_id
-  subnet_ids   = module.vpc.private_subnets
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
   # For the example, keep sizes small to avoid excessive costs if applied
   cpu_node_min_size     = 1

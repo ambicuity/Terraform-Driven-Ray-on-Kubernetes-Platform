@@ -9,7 +9,7 @@ variable "environment" {
   description = "Environment name (dev, staging, production)"
   type        = string
   default     = "production"
-  
+
   validation {
     condition     = contains(["dev", "staging", "production"], var.environment)
     error_message = "Environment must be dev, staging, or production."
@@ -115,7 +115,7 @@ variable "cpu_node_min_size" {
   description = "Minimum number of CPU worker nodes"
   type        = number
   default     = 2
-  
+
   validation {
     condition     = var.cpu_node_min_size >= 1 && var.cpu_node_min_size <= 10
     error_message = "CPU node min size must be between 1 and 10."
@@ -126,7 +126,7 @@ variable "cpu_node_max_size" {
   description = "Maximum number of CPU worker nodes"
   type        = number
   default     = 10
-  
+
   validation {
     condition     = var.cpu_node_max_size >= var.cpu_node_min_size && var.cpu_node_max_size <= 20
     error_message = "CPU node max size must be between min_size and 20."
@@ -156,7 +156,7 @@ variable "gpu_node_min_size" {
   description = "Minimum number of GPU worker nodes"
   type        = number
   default     = 0
-  
+
   validation {
     condition     = var.gpu_node_min_size >= 0 && var.gpu_node_min_size <= 5
     error_message = "GPU node min size must be between 0 and 5."
@@ -167,7 +167,7 @@ variable "gpu_node_max_size" {
   description = "Maximum number of GPU worker nodes"
   type        = number
   default     = 5
-  
+
   validation {
     condition     = var.gpu_node_max_size >= var.gpu_node_min_size && var.gpu_node_max_size <= 10
     error_message = "GPU node max size must be between min_size and 10."

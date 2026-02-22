@@ -135,7 +135,7 @@ output "estimated_monthly_cost" {
 # Access Instructions
 output "access_instructions" {
   description = "Instructions to access the cluster"
-  value = <<-EOT
+  value       = <<-EOT
     1. Configure kubectl:
        ${output.kubeconfig_command.value}
     
