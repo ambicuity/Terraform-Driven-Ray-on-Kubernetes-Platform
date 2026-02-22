@@ -13,9 +13,8 @@ This module provides the necessary AWS infrastructure including VPC networking, 
 - **KMS Secret Encryption**: Kubernetes secrets are encrypted at rest using AWS KMS.
 - **EKS Cluster**: Provisions a fully functional EKS control plane.
 - **Node Groups**: Supports separate, autoscaling CPU and GPU node groups.
-- **GPU Taints & Tolerations**: GPU nodes are automatically tainted to prevent non-GPU workloads from consuming expensive resources.
+- **GPU Spot Instances & Taints**: GPU nodes default to **SPOT** capacity for extreme cost optimization. They are also automatically tainted to prevent non-GPU workloads from consuming expensive resources.
 - **Autoscaler Ready**: Configures IAM permissions and IRSA for the Kubernetes Cluster Autoscaler so you can easily deploy the Helm chart.
-- **Security Best Practices**: Enforces private endpoints, IRSA for pod-level permissions, and encrypts EBS volumes by default.
 
 ## Architecture
 
@@ -109,8 +108,8 @@ For a complete runnable example, see the [examples/complete](examples/complete) 
 |------|-------------|------|---------|:--------:|
 | `cluster_name` | Name of the EKS cluster | `string` | `"ray-ml-cluster"` | no |
 | `region` | AWS region | `string` | `"us-east-1"` | no |
-| `vpc_id` | ID of the existing VPC | `string` | `""` | yes |
-| `subnet_ids` | List of subnet IDs | `list(string)` | `[]` | yes |
+| `vpc_id` | ID of the existing VPC | `string` | n/a | yes |
+| `subnet_ids` | List of subnet IDs | `list(string)` | n/a | yes |
 | `kms_key_arn` | ARN of KMS key for encryption | `string` | `""` | no |
 | `enable_gpu_nodes` | Whether to create a GPU node group | `bool` | `true` | no |
 | `cpu_node_instance_types` | Instance types for CPU nodes | `list(string)` | `["m5.xlarge", "m5a.xlarge"]` | no |
@@ -133,12 +132,14 @@ For a complete runnable example, see the [examples/complete](examples/complete) 
 
 *(For a full list of outputs, see `outputs.tf`)*
 
-## Deploying Workloads (Helm)
+## Deploying Workloads (Helm/Operators)
 
-This module **only** provisions the AWS infrastructure. To achieve a production-ready environment, you must deploy the necessary Kubernetes operators via Helm, passing in the IAM roles Outputted by this module.
+This module handles the heavy lifting of the AWS infrastructure natively. Additionally, we provide an out-of-the-box native Helm integration (see `examples/complete/helm.tf`) that automatically deploys:
 
-1. **Cluster Autoscaler**: Install the [cluster-autoscaler Helm chart](https://github.com/kubernetes/autoscaler/tree/master/charts/cluster-autoscaler) using the `cluster_autoscaler_iam_role_arn` output.
-2. **Ray**: Use the official [KubeRay Helm Chart](https://github.com/ray-project/kuberay/tree/master/helm-chart/kuberay-operator).
+1. **Cluster Autoscaler**: Native scaling tied to your IAM IRSA role.
+2. **KubeRay Operator**: The Ray ML control plane, ready immediately.
+
+If you leverage the module via the complete example, you can literally `terraform apply` and have a production-ready Ray platform available moments later without running a single manual `helm install` command.
 
 An example Ray configuration (`values.yaml`) for a bursty Ray workload is provided in the `helm/ray/` directory of this repository for reference.
 

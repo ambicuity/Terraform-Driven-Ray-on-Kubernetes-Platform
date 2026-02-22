@@ -60,12 +60,44 @@ resource "aws_cloudwatch_log_group" "cluster" {
   retention_in_days = var.log_retention_days
 }
 
+data "aws_caller_identity" "current" {}
+
 # KMS Key for EKS Secret Encryption
 resource "aws_kms_key" "eks" {
   count                   = var.kms_key_arn == "" ? 1 : 0
   description             = "EKS Secret Encryption Key for ${var.cluster_name}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource   = "*"
+      },
+      {
+        Sid    = "Allow EKS Control Plane to use the key"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.cluster.arn
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 
   tags = {
     Name = "${var.cluster_name}-kms-key"
