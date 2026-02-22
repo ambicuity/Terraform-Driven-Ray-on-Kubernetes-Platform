@@ -1,0 +1,271 @@
+name: Bot Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  handle-command:
+    name: Process Command
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.comment.body, '/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse and execute command
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        with:
+          script: |
+            const comment = process.env.COMMENT_BODY.trim();
+            const author = process.env.COMMENT_AUTHOR;
+            const issueNumber = context.issue.number;
+            const isPR = !!context.payload.issue.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Parse command and args
+            const parts = comment.split(/\s+/);
+            const cmd = parts[0].toLowerCase();
+            const args = parts.slice(1);
+
+            console.log(`Command: ${cmd}, Args: ${args}, Author: ${author}`);
+
+            async function react(emoji) {
+              await github.rest.reactions.createForIssueComment({
+                owner, repo,
+                comment_id: context.payload.comment.id,
+                content: emoji
+              });
+            }
+
+            async function reply(body) {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: issueNumber,
+                body
+              });
+            }
+
+            async function addLabel(label) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner, repo,
+                  issue_number: issueNumber,
+                  labels: [label]
+                });
+              } catch (e) {
+                await reply(`⚠️ Label \`${label}\` not found. Run \`/help labels\` to see available labels.`);
+              }
+            }
+
+            async function removeLabel(label) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo,
+                  issue_number: issueNumber,
+                  name: label
+                });
+              } catch (e) {
+                // Label may not be present — ignore
+              }
+            }
+
+            // ========== COMMAND HANDLERS ==========
+
+            switch (cmd) {
+
+              // --- AI Commands ---
+              case '/ai-review':
+                if (!isPR) { await reply('⚠️ `/ai-review` only works on Pull Requests.'); break; }
+                await addLabel('ai-review');
+                await react('rocket');
+                break;
+
+              case '/ai-tests':
+                if (!isPR) { await reply('⚠️ `/ai-tests` only works on Pull Requests.'); break; }
+                await addLabel('ai-review');
+                await react('rocket');
+                await reply('🧪 AI Test Engineer triggered. Test suggestions will appear shortly.');
+                break;
+
+              case '/plan':
+                await react('eyes');
+                await reply(
+                  '🤖 **AI Solution Plan requested.**\n\n' +
+                  'The AI Issue Solver runs automatically on new issues. ' +
+                  'If you need a fresh analysis, close and reopen this issue, ' +
+                  'or comment `/replan` to trigger a new analysis.'
+                );
+                break;
+
+              // --- Assignment ---
+              case '/assign':
+                const assignee = args[0] ? args[0].replace('@', '') : author;
+                try {
+                  await github.rest.issues.addAssignees({
+                    owner, repo,
+                    issue_number: issueNumber,
+                    assignees: [assignee]
+                  });
+                  await react('+1');
+                } catch (e) {
+                  await reply(`⚠️ Could not assign \`@${assignee}\`. They may not have access.`);
+                }
+                break;
+
+              case '/unassign':
+                const unassignee = args[0] ? args[0].replace('@', '') : author;
+                try {
+                  await github.rest.issues.removeAssignees({
+                    owner, repo,
+                    issue_number: issueNumber,
+                    assignees: [unassignee]
+                  });
+                  await react('+1');
+                } catch (e) {
+                  await reply(`⚠️ Could not unassign \`@${unassignee}\`.`);
+                }
+                break;
+
+              // --- Labels ---
+              case '/label':
+                if (args.length === 0) {
+                  await reply('Usage: `/label <label-name>` — e.g., `/label P1-high`');
+                  break;
+                }
+                await addLabel(args[0]);
+                await react('+1');
+                break;
+
+              case '/unlabel':
+                if (args.length === 0) {
+                  await reply('Usage: `/unlabel <label-name>`');
+                  break;
+                }
+                await removeLabel(args[0]);
+                await react('+1');
+                break;
+
+              // --- Priority ---
+              case '/priority':
+                const validPriorities = ['P0-critical', 'P1-high', 'P2-medium', 'P3-low'];
+                const pArg = args[0] ? args[0].toUpperCase() : '';
+                const pLabel = validPriorities.find(p => p.startsWith(pArg));
+                if (!pLabel) {
+                  await reply(
+                    '**Usage:** `/priority <level>`\n\n' +
+                    '| Command | Label |\n|---|---|\n' +
+                    '| `/priority P0` | P0-critical |\n' +
+                    '| `/priority P1` | P1-high |\n' +
+                    '| `/priority P2` | P2-medium |\n' +
+                    '| `/priority P3` | P3-low |'
+                  );
+                  break;
+                }
+                // Remove existing priority labels first
+                for (const p of validPriorities) { await removeLabel(p); }
+                await addLabel(pLabel);
+                await react('+1');
+                break;
+
+              // --- Status ---
+              case '/status':
+                const validStatuses = ['status/in-progress', 'status/blocked', 'status/needs-review', 'status/approved'];
+                const sArg = args[0] ? args[0].toLowerCase() : '';
+                const statusMap = {
+                  'in-progress': 'status/in-progress',
+                  'blocked': 'status/blocked',
+                  'review': 'status/needs-review',
+                  'needs-review': 'status/needs-review',
+                  'approved': 'status/approved'
+                };
+                const sLabel = statusMap[sArg];
+                if (!sLabel) {
+                  await reply(
+                    '**Usage:** `/status <state>`\n\n' +
+                    '| Command | Label |\n|---|---|\n' +
+                    '| `/status in-progress` | status/in-progress |\n' +
+                    '| `/status blocked` | status/blocked |\n' +
+                    '| `/status review` | status/needs-review |\n' +
+                    '| `/status approved` | status/approved |'
+                  );
+                  break;
+                }
+                for (const s of validStatuses) { await removeLabel(s); }
+                await addLabel(sLabel);
+                await react('+1');
+                break;
+
+              // --- Close/Reopen ---
+              case '/close':
+                await github.rest.issues.update({
+                  owner, repo,
+                  issue_number: issueNumber,
+                  state: 'closed'
+                });
+                await react('+1');
+                break;
+
+              case '/reopen':
+                await github.rest.issues.update({
+                  owner, repo,
+                  issue_number: issueNumber,
+                  state: 'open'
+                });
+                await react('+1');
+                break;
+
+              // --- Duplicate ---
+              case '/duplicate':
+                if (args[0]) {
+                  const dupNum = args[0].replace('#', '');
+                  await addLabel('duplicate');
+                  await reply(`Marked as duplicate of #${dupNum}.`);
+                  await github.rest.issues.update({
+                    owner, repo,
+                    issue_number: issueNumber,
+                    state: 'closed',
+                    state_reason: 'not_planned'
+                  });
+                } else {
+                  await reply('Usage: `/duplicate #<issue-number>`');
+                }
+                break;
+
+              // --- Help ---
+              case '/help':
+                await reply(
+                  '## 🤖 Bot Commands\n\n' +
+                  '### AI Commands\n' +
+                  '| Command | Description |\n|---|---|\n' +
+                  '| `/ai-review` | Trigger AI code review (PRs only) |\n' +
+                  '| `/ai-tests` | Trigger AI test suggestions (PRs only) |\n' +
+                  '| `/plan` | Request an AI solution plan |\n\n' +
+                  '### Workflow\n' +
+                  '| Command | Description |\n|---|---|\n' +
+                  '| `/assign [@user]` | Assign issue/PR (defaults to you) |\n' +
+                  '| `/unassign [@user]` | Unassign issue/PR |\n' +
+                  '| `/close` | Close this issue/PR |\n' +
+                  '| `/reopen` | Reopen this issue/PR |\n' +
+                  '| `/duplicate #N` | Mark as duplicate and close |\n\n' +
+                  '### Labels\n' +
+                  '| Command | Description |\n|---|---|\n' +
+                  '| `/label <name>` | Add a label |\n' +
+                  '| `/unlabel <name>` | Remove a label |\n' +
+                  '| `/priority P0\\|P1\\|P2\\|P3` | Set priority |\n' +
+                  '| `/status in-progress\\|blocked\\|review\\|approved` | Set status |\n\n' +
+                  '---\n*Type `/help` anytime to see this menu.*'
+                );
+                break;
+
+              default:
+                await reply(`❓ Unknown command: \`${cmd}\`. Type \`/help\` to see available commands.`);
+            }
