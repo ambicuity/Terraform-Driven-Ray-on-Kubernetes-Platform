@@ -85,24 +85,6 @@ variable "eks_addons" {
   }
 }
 
-variable "eks_addons" {
-  description = "Map of EKS addons to enable"
-  type        = map(any)
-  default = {
-    vpc-cni = {
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "OVERWRITE"
-    }
-    kube-proxy = {
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "OVERWRITE"
-    }
-    coredns = {
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "OVERWRITE"
-    }
-  }
-}
 
 # Node Pool Configuration - CPU Workers
 variable "cpu_node_instance_types" {
@@ -128,8 +110,8 @@ variable "cpu_node_max_size" {
   default     = 10
 
   validation {
-    condition     = var.cpu_node_max_size >= var.cpu_node_min_size && var.cpu_node_max_size <= 20
-    error_message = "CPU node max size must be between min_size and 20."
+    condition     = var.cpu_node_max_size >= 1 && var.cpu_node_max_size <= 20
+    error_message = "CPU node max size must be between 1 and 20."
   }
 }
 
@@ -169,8 +151,8 @@ variable "gpu_node_max_size" {
   default     = 5
 
   validation {
-    condition     = var.gpu_node_max_size >= var.gpu_node_min_size && var.gpu_node_max_size <= 10
-    error_message = "GPU node max size must be between min_size and 10."
+    condition     = var.gpu_node_max_size >= 0 && var.gpu_node_max_size <= 10
+    error_message = "GPU node max size must be between 0 and 10."
   }
 }
 
