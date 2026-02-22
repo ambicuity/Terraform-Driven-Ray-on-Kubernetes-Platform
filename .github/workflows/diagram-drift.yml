@@ -1,0 +1,92 @@
+name: Diagram Drift Detector
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.tf'
+      - 'modules/**/*.tf'
+      - 'helm/**'
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  detect:
+    name: Check Diagram Freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect infrastructure changes
+        id: changes
+        run: |
+          # Get changed files from the PR
+          CHANGED=$(gh pr diff ${{ github.event.pull_request.number }} --name-only 2>/dev/null || echo "")
+
+          INFRA_CHANGES=""
+          COMPONENTS=""
+
+          for f in $CHANGED; do
+            case "$f" in
+              *vpc* | *networking* | *subnet*)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                COMPONENTS="$COMPONENTS VPC/Networking"
+                ;;
+              *eks* | *cluster* | *node*)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                COMPONENTS="$COMPONENTS EKS/Cluster"
+                ;;
+              *iam* | *role* | *policy*)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                COMPONENTS="$COMPONENTS IAM/Security"
+                ;;
+              *helm* | *ray* | *kuberay*)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                COMPONENTS="$COMPONENTS Helm/KubeRay"
+                ;;
+              *kms* | *encrypt*)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                COMPONENTS="$COMPONENTS KMS/Encryption"
+                ;;
+              *.tf)
+                INFRA_CHANGES="$INFRA_CHANGES\n- $f"
+                ;;
+            esac
+          done
+
+          if [ -n "$INFRA_CHANGES" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            UNIQUE_COMPONENTS=$(echo "$COMPONENTS" | tr ' ' '\n' | sort -u | tr '\n' ', ' | sed 's/,$//')
+            echo "components=$UNIQUE_COMPONENTS" >> "$GITHUB_OUTPUT"
+            echo -e "$INFRA_CHANGES" > /tmp/infra_changes.txt
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post diagram update reminder
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const changes = fs.readFileSync('/tmp/infra_changes.txt', 'utf8');
+            const components = '${{ steps.changes.outputs.components }}';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 📐 Architecture Diagram Drift Warning\n\n` +
+                    `This PR modifies infrastructure files that may affect architecture diagrams.\n\n` +
+                    `**Affected components:** ${components}\n\n` +
+                    `**Changed infrastructure files:**\n\`\`\`\n${changes}\n\`\`\`\n\n` +
+                    `> **Action needed:** Please verify that the following are still accurate:\n` +
+                    `> - Architecture diagrams in \`README.md\`\n` +
+                    `> - Network topology documentation\n` +
+                    `> - Any Mermaid/ASCII diagrams referencing these components\n\n` +
+                    `---\n*Automated check by Diagram Drift Detector.*`
+            });

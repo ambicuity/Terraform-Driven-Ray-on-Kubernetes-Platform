@@ -1,0 +1,97 @@
+name: AI Documentation Sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.tf'
+      - '**/*.py'
+      - 'helm/**'
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  check:
+    name: Documentation Freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check doc staleness
+        id: doc_check
+        run: |
+          CHANGED=$(gh pr diff ${{ github.event.pull_request.number }} --name-only 2>/dev/null || echo "")
+          WARNINGS=""
+
+          # Check if variables.tf changed but README wasn't updated
+          if echo "$CHANGED" | grep -q "variables.tf"; then
+            if ! echo "$CHANGED" | grep -q "README.md"; then
+              WARNINGS="$WARNINGS\n- ⚠️ \`variables.tf\` changed but \`README.md\` was not updated — input docs may be stale"
+            fi
+          fi
+
+          # Check if outputs.tf changed but README wasn't updated
+          if echo "$CHANGED" | grep -q "outputs.tf"; then
+            if ! echo "$CHANGED" | grep -q "README.md"; then
+              WARNINGS="$WARNINGS\n- ⚠️ \`outputs.tf\` changed but \`README.md\` was not updated — output docs may be stale"
+            fi
+          fi
+
+          # Check if main.tf or module structure changed
+          if echo "$CHANGED" | grep -qE "(main\.tf|node_pools\.tf|modules/)"; then
+            if ! echo "$CHANGED" | grep -q "README.md"; then
+              WARNINGS="$WARNINGS\n- ⚠️ Core module files changed — architecture description in README may need updating"
+            fi
+          fi
+
+          # Check if Helm values changed
+          if echo "$CHANGED" | grep -q "helm/"; then
+            if ! echo "$CHANGED" | grep -q "README.md"; then
+              WARNINGS="$WARNINGS\n- ⚠️ Helm chart changed — deployment instructions in README may need updating"
+            fi
+          fi
+
+          # Check if Python workloads changed
+          if echo "$CHANGED" | grep -q "workloads/"; then
+            if ! echo "$CHANGED" | grep -qE "(README|CHANGELOG)"; then
+              WARNINGS="$WARNINGS\n- ⚠️ Python workloads changed — usage examples may need updating"
+            fi
+          fi
+
+          # Check if OPA policies changed
+          if echo "$CHANGED" | grep -q "policies/"; then
+            if ! echo "$CHANGED" | grep -q "README.md"; then
+              WARNINGS="$WARNINGS\n- ⚠️ OPA policies changed — governance documentation may need updating"
+            fi
+          fi
+
+          if [ -n "$WARNINGS" ]; then
+            echo "has_warnings=true" >> "$GITHUB_OUTPUT"
+            echo -e "$WARNINGS" > /tmp/doc_warnings.txt
+          else
+            echo "has_warnings=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post documentation warning
+        if: steps.doc_check.outputs.has_warnings == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const warnings = fs.readFileSync('/tmp/doc_warnings.txt', 'utf8');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 📖 Documentation Sync Check\n\n` +
+                    `This PR modifies code but may not have updated the corresponding documentation:\n\n` +
+                    `${warnings}\n\n` +
+                    `> **Tip:** Run \`terraform-docs\` to auto-update input/output tables, ` +
+                    `and review the architecture section manually.\n\n` +
+                    `---\n*Automated check by Documentation Sync Bot.*`
+            });

@@ -1,0 +1,114 @@
+name: Technical Debt Tracker
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly on Mondays 8 AM UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  scan:
+    name: Scan TODO/FIXME
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for tech debt markers
+        id: scan
+        run: |
+          echo "## 📋 Technical Debt Report" > /tmp/debt_report.md
+          echo "" >> /tmp/debt_report.md
+          echo "Generated on $(date -u '+%Y-%m-%d %H:%M UTC')" >> /tmp/debt_report.md
+          echo "" >> /tmp/debt_report.md
+
+          FOUND=0
+
+          for MARKER in TODO FIXME HACK XXX; do
+            RESULTS=$(grep -rnI --include='*.py' --include='*.tf' --include='*.rego' \
+              --include='*.yml' --include='*.yaml' --include='*.sh' \
+              "$MARKER" . --exclude-dir=.git --exclude-dir=node_modules \
+              --exclude-dir=.terraform 2>/dev/null || true)
+
+            if [ -n "$RESULTS" ]; then
+              COUNT=$(echo "$RESULTS" | wc -l | tr -d ' ')
+              FOUND=$((FOUND + COUNT))
+              echo "### \`$MARKER\` — $COUNT occurrence(s)" >> /tmp/debt_report.md
+              echo "" >> /tmp/debt_report.md
+              echo '```' >> /tmp/debt_report.md
+              echo "$RESULTS" | head -20 >> /tmp/debt_report.md
+              if [ "$COUNT" -gt 20 ]; then
+                echo "... and $((COUNT - 20)) more" >> /tmp/debt_report.md
+              fi
+              echo '```' >> /tmp/debt_report.md
+              echo "" >> /tmp/debt_report.md
+            fi
+          done
+
+          if [ "$FOUND" -gt 0 ]; then
+            echo "has_debt=true" >> "$GITHUB_OUTPUT"
+            echo "total=$FOUND" >> "$GITHUB_OUTPUT"
+            echo "" >> /tmp/debt_report.md
+            echo "> **Total: $FOUND tech debt marker(s) found.**" >> /tmp/debt_report.md
+            echo "> Consider addressing these to improve code maintainability." >> /tmp/debt_report.md
+          else
+            echo "has_debt=false" >> "$GITHUB_OUTPUT"
+            echo "✅ No tech debt markers found."
+          fi
+
+      - name: Create or update issue
+        if: steps.scan.outputs.has_debt == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/debt_report.md', 'utf8');
+            const total = '${{ steps.scan.outputs.total }}';
+
+            // Check if an existing tech debt issue is open
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'tech-debt',
+              state: 'open',
+              per_page: 1
+            });
+
+            if (issues.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: report
+              });
+              console.log(`Updated existing issue #${issues[0].number}`);
+            } else {
+              // Ensure label exists
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'tech-debt'
+                });
+              } catch {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'tech-debt',
+                  color: 'fbca04',
+                  description: 'Technical debt markers (TODO, FIXME, HACK)'
+                });
+              }
+
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `📋 Technical Debt Report — ${total} marker(s)`,
+                body: report,
+                labels: ['tech-debt']
+              });
+            }

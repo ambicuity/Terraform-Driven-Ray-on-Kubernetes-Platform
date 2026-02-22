@@ -1,0 +1,63 @@
+name: License Header Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['**/*.py', '**/*.tf', '**/*.rego']
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  check:
+    name: MIT License Headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check license headers
+        id: license
+        run: |
+          MISSING=""
+          HEADER="# MIT License"
+          HEADER_ALT="# Copyright"
+          HEADER_TF="# MIT License"
+
+          # Check Python files
+          for f in $(find . -name '*.py' -not -path './.git/*' -not -path './node_modules/*'); do
+            head -5 "$f" | grep -qi -E "(MIT License|Copyright|License)" || MISSING="$MISSING\n- $f"
+          done
+
+          # Check Rego files
+          for f in $(find . -name '*.rego' -not -path './.git/*'); do
+            head -5 "$f" | grep -qi -E "(MIT License|Copyright|License|package)" || MISSING="$MISSING\n- $f"
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "has_missing=true" >> "$GITHUB_OUTPUT"
+            echo -e "Missing license headers:$MISSING" > /tmp/missing_headers.txt
+            cat /tmp/missing_headers.txt
+          else
+            echo "has_missing=false" >> "$GITHUB_OUTPUT"
+            echo "✅ All files have license headers."
+          fi
+
+      - name: Post warning comment
+        if: steps.license.outputs.has_missing == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const missing = fs.readFileSync('/tmp/missing_headers.txt', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 📜 License Header Check\n\n` +
+                    `The following files are missing an MIT license header:\n\n` +
+                    `\`\`\`\n${missing}\n\`\`\`\n\n` +
+                    `Please add the following header to the top of each file:\n\n` +
+                    `\`\`\`python\n# MIT License\n# Copyright (c) 2026 ambicuity\n\`\`\`\n\n` +
+                    `---\n*Automated check by License Header Bot.*`
+            });
