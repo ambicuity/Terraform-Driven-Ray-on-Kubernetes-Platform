@@ -3,7 +3,7 @@ resource "aws_eks_node_group" "cpu_workers" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.cluster_name}-cpu-workers"
   node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = aws_subnet.private[*].id
+  subnet_ids      = var.subnet_ids
   instance_types  = var.cpu_node_instance_types
 
   scaling_config {
@@ -90,7 +90,7 @@ resource "aws_eks_node_group" "gpu_workers" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.cluster_name}-gpu-workers"
   node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = aws_subnet.private[*].id
+  subnet_ids      = var.subnet_ids
   instance_types  = var.gpu_node_instance_types
 
   scaling_config {
@@ -244,102 +244,4 @@ resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
   count      = var.enable_cluster_autoscaler ? 1 : 0
   policy_arn = aws_iam_policy.cluster_autoscaler[0].arn
   role       = aws_iam_role.cluster_autoscaler[0].name
-}
-
-# Kubernetes Service Account for Cluster Autoscaler
-resource "kubernetes_service_account" "cluster_autoscaler" {
-  count = var.enable_cluster_autoscaler ? 1 : 0
-
-  metadata {
-    name      = "cluster-autoscaler"
-    namespace = "kube-system"
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.cluster_autoscaler[0].arn
-    }
-  }
-
-  depends_on = [aws_eks_cluster.main]
-}
-
-# Deploy Cluster Autoscaler
-resource "kubernetes_deployment" "cluster_autoscaler" {
-  count = var.enable_cluster_autoscaler ? 1 : 0
-
-  metadata {
-    name      = "cluster-autoscaler"
-    namespace = "kube-system"
-    labels = {
-      app = "cluster-autoscaler"
-    }
-  }
-
-  spec {
-    replicas = 1
-
-    selector {
-      match_labels = {
-        app = "cluster-autoscaler"
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = "cluster-autoscaler"
-        }
-      }
-
-      spec {
-        service_account_name = kubernetes_service_account.cluster_autoscaler[0].metadata[0].name
-
-        container {
-          name  = "cluster-autoscaler"
-          image = "registry.k8s.io/autoscaling/cluster-autoscaler:v1.28.0"
-
-          command = [
-            "./cluster-autoscaler",
-            "--v=4",
-            "--stderrthreshold=info",
-            "--cloud-provider=aws",
-            "--skip-nodes-with-local-storage=false",
-            "--expander=least-waste",
-            "--node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/${var.cluster_name}",
-            "--balance-similar-node-groups",
-            "--skip-nodes-with-system-pods=false",
-            "--scale-down-delay-after-add=${var.autoscaler_scale_down_delay}m"
-          ]
-
-          env {
-            name  = "AWS_REGION"
-            value = var.region
-          }
-
-          resources {
-            limits = {
-              cpu    = "100m"
-              memory = "300Mi"
-            }
-            requests = {
-              cpu    = "100m"
-              memory = "300Mi"
-            }
-          }
-
-          security_context {
-            allow_privilege_escalation = false
-            read_only_root_filesystem  = true
-            run_as_non_root            = true
-            capabilities {
-              drop = ["ALL"]
-            }
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [
-    kubernetes_service_account.cluster_autoscaler,
-    aws_eks_node_group.cpu_workers
-  ]
 }

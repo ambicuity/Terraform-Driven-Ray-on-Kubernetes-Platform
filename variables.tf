@@ -43,16 +43,14 @@ variable "commit_sha" {
 }
 
 # Networking
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+variable "vpc_id" {
+  description = "ID of the existing VPC to deploy the EKS cluster into"
   type        = string
-  default     = "10.0.0.0/16"
 }
 
-variable "availability_zones" {
-  description = "Availability zones for subnet distribution"
+variable "subnet_ids" {
+  description = "List of subnet IDs to deploy the EKS cluster and worker nodes into (preferably private subnets)"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
 # EKS Configuration
@@ -60,6 +58,12 @@ variable "kubernetes_version" {
   description = "Kubernetes version for EKS"
   type        = string
   default     = "1.28"
+}
+
+variable "kms_key_arn" {
+  description = "The Amazon Resource Name (ARN) of the KMS key to use for envelope encryption of Kubernetes secrets. If not provided, a new key will be created."
+  type        = string
+  default     = ""
 }
 
 variable "cluster_endpoint_public_access" {

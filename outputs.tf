@@ -67,27 +67,6 @@ output "gpu_node_group_status" {
   value       = var.enable_gpu_nodes ? aws_eks_node_group.gpu_workers[0].status : null
 }
 
-# Networking
-output "vpc_id" {
-  description = "VPC ID"
-  value       = aws_vpc.main.id
-}
-
-output "vpc_cidr" {
-  description = "VPC CIDR block"
-  value       = aws_vpc.main.cidr_block
-}
-
-output "private_subnet_ids" {
-  description = "Private subnet IDs"
-  value       = aws_subnet.private[*].id
-}
-
-output "public_subnet_ids" {
-  description = "Public subnet IDs"
-  value       = aws_subnet.public[*].id
-}
-
 # Security
 output "cluster_security_group_id" {
   description = "Cluster security group ID"
@@ -110,26 +89,10 @@ output "node_iam_role_arn" {
   value       = aws_iam_role.node.arn
 }
 
-# Storage
-output "storage_class_name" {
-  description = "Storage class name for Ray persistent volumes"
-  value       = var.enable_ebs_csi_driver ? kubernetes_storage_class.ray_storage[0].metadata[0].name : null
-}
-
-# Ray Configuration
-output "ray_namespace" {
-  description = "Kubernetes namespace for Ray"
-  value       = kubernetes_namespace.ray[0].metadata[0].name
-}
-
-output "ray_dashboard_port" {
-  description = "Ray dashboard port"
-  value       = 8265
-}
-
-output "ray_client_port" {
-  description = "Ray client port"
-  value       = 10001
+# IRSA Roles
+output "cluster_autoscaler_iam_role_arn" {
+  description = "IAM Role ARN for the Cluster Autoscaler (IRSA)"
+  value       = var.enable_cluster_autoscaler ? aws_iam_role.cluster_autoscaler[0].arn : null
 }
 
 # Monitoring

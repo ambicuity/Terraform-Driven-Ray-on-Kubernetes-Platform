@@ -1,123 +1,8 @@
-# VPC for EKS Cluster
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name                                        = "${var.cluster_name}-vpc"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.cluster_name}-igw"
-  }
-}
-
-# Public Subnets
-resource "aws_subnet" "public" {
-  count = length(var.availability_zones)
-
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone       = var.availability_zones[count.index]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name                                        = "${var.cluster_name}-public-${var.availability_zones[count.index]}"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                    = "1"
-  }
-}
-
-# Private Subnets
-resource "aws_subnet" "private" {
-  count = length(var.availability_zones)
-
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + length(var.availability_zones))
-  availability_zone = var.availability_zones[count.index]
-
-  tags = {
-    Name                                        = "${var.cluster_name}-private-${var.availability_zones[count.index]}"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = "1"
-  }
-}
-
-# NAT Gateways (one per AZ for HA)
-resource "aws_eip" "nat" {
-  count  = length(var.availability_zones)
-  domain = "vpc"
-
-  tags = {
-    Name = "${var.cluster_name}-nat-eip-${var.availability_zones[count.index]}"
-  }
-}
-
-resource "aws_nat_gateway" "main" {
-  count         = length(var.availability_zones)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-
-  tags = {
-    Name = "${var.cluster_name}-nat-${var.availability_zones[count.index]}"
-  }
-
-  depends_on = [aws_internet_gateway.main]
-}
-
-# Route Tables
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-public-rt"
-  }
-}
-
-resource "aws_route_table" "private" {
-  count  = length(var.availability_zones)
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
-  }
-
-  tags = {
-    Name = "${var.cluster_name}-private-rt-${var.availability_zones[count.index]}"
-  }
-}
-
-# Route Table Associations
-resource "aws_route_table_association" "public" {
-  count          = length(var.availability_zones)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "private" {
-  count          = length(var.availability_zones)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
-}
-
 # Security Group for EKS Nodes
 resource "aws_security_group" "node" {
   name_prefix = "${var.cluster_name}-node-"
   description = "Security group for EKS worker nodes"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   egress {
     from_port   = 0
@@ -175,6 +60,24 @@ resource "aws_cloudwatch_log_group" "cluster" {
   retention_in_days = var.log_retention_days
 }
 
+# KMS Key for EKS Secret Encryption
+resource "aws_kms_key" "eks" {
+  count                   = var.kms_key_arn == "" ? 1 : 0
+  description             = "EKS Secret Encryption Key for ${var.cluster_name}"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name = "${var.cluster_name}-kms-key"
+  }
+}
+
+resource "aws_kms_alias" "eks" {
+  count         = var.kms_key_arn == "" ? 1 : 0
+  name          = "alias/${var.cluster_name}-eks-secrets"
+  target_key_id = aws_kms_key.eks[0].key_id
+}
+
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
@@ -182,10 +85,17 @@ resource "aws_eks_cluster" "main" {
   role_arn = aws_iam_role.cluster.arn
 
   vpc_config {
-    subnet_ids              = concat(aws_subnet.private[*].id, aws_subnet.public[*].id)
+    subnet_ids              = var.subnet_ids
     endpoint_public_access  = var.cluster_endpoint_public_access
     endpoint_private_access = true
     security_group_ids      = [aws_security_group.node.id]
+  }
+
+  encryption_config {
+    provider {
+      key_arn = var.kms_key_arn != "" ? var.kms_key_arn : aws_kms_key.eks[0].arn
+    }
+    resources = ["secrets"]
   }
 
   enabled_cluster_log_types = var.enable_cloudwatch_logs ? [
