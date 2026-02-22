@@ -26,20 +26,14 @@ jobs:
         with:
           directory: .
           framework: terraform,helm
-          # Upload results to GitHub Security tab
           output_format: sarif
-          output_file_path: checkov.sarif
-          # Soft-fail so the workflow is informational, not blocking
+          output_file_path: reports/checkov.sarif
           soft_fail: true
-          # Skip known-acceptable checks for this module
-          skip_check: >-
-            CKV_AWS_149,
-            CKV_AWS_111,
-            CKV_AWS_355
+          skip_check: CKV_AWS_149,CKV_AWS_111,CKV_AWS_355
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: checkov.sarif
+          sarif_file: reports/checkov.sarif
           category: checkov
