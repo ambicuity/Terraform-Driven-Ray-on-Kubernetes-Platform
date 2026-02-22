@@ -32,7 +32,7 @@ required_labels := [
 deny[msg] {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
-    cpu := to_number(worker_group.template.spec.containers[0].resources.requests.cpu)
+    cpu := parse_value(worker_group.template.spec.containers[0].resources.requests.cpu)
     cpu > max_cpu_per_worker
     msg := sprintf("Worker group '%s' requests %d CPUs, exceeds limit of %d", [worker_group.groupName, cpu, max_cpu_per_worker])
 }
@@ -65,7 +65,7 @@ deny[msg] {
 deny[msg] {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
-    gpu := to_number(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
+    gpu := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
     gpu > max_gpu_per_worker
     msg := sprintf("Worker group '%s' requests %d GPUs, exceeds limit of %d", [worker_group.groupName, gpu, max_gpu_per_worker])
 }
@@ -73,7 +73,7 @@ deny[msg] {
 get_gpu_counts[i] = count {
     w := input.spec.workerGroupSpecs[i]
     gpu_req := w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]
-    count := w.maxReplicas * to_number(gpu_req)
+    count := w.maxReplicas * parse_value(gpu_req)
 }
 
 # Deny if total GPU count exceeds limit
@@ -97,7 +97,7 @@ deny[msg] {
 deny[msg] {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
-    cpu := to_number(worker_group.template.spec.containers[0].resources.requests.cpu)
+    cpu := parse_value(worker_group.template.spec.containers[0].resources.requests.cpu)
     cpu < min_cpu_request
     msg := sprintf("Worker group '%s' CPU request (%f) below minimum (%f)", [worker_group.groupName, cpu, min_cpu_request])
 }
@@ -117,7 +117,7 @@ deny[msg] {
 deny[msg] {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
-    gpu_requested := to_number(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
+    gpu_requested := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
     gpu_requested > 0
     tolerations := object.get(worker_group.template.spec, "tolerations", [])
     not has_gpu_toleration(tolerations)
@@ -153,7 +153,7 @@ warn[msg] {
 warn[msg] {
     input.kind == "RayCluster"
     worker_group := input.spec.workerGroupSpecs[_]
-    gpu := to_number(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
+    gpu := parse_value(worker_group.template.spec.containers[0].resources.requests["nvidia.com/gpu"])
     gpu > 0
     min_replicas := worker_group.minReplicas
     min_replicas > 0
@@ -166,7 +166,7 @@ allow if {
 }
 
 # Helper function
-to_number(str) = result if {
+parse_value(str) = result if {
     is_string(str)
     result := to_number(trim_suffix(str, "m")) / 1000
 } else = str if {
