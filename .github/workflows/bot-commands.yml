@@ -103,6 +103,52 @@ jobs:
                 await reply('🤖 **AI Solution Plan triggered.** Gemini is analyzing this issue — expect a response in ~30 seconds.');
                 break;
 
+              // --- Status Response (Assignment Follow-up) ---
+              case '/working':
+                await addLabel('status/in-progress');
+                await removeLabel('needs-triage');
+                await react('+1');
+                await reply(`✅ Thanks @${author}! Marked as **in progress**. Keep up the great work. 💪`);
+                break;
+
+              case '/not-working':
+                try {
+                  await github.rest.issues.removeAssignees({
+                    owner, repo,
+                    issue_number: issueNumber,
+                    assignees: [author]
+                  });
+                } catch (e) { /* ignore */ }
+                await removeLabel('status/in-progress');
+                await removeLabel('needs-triage');
+                await react('+1');
+                await reply(`🔄 @${author} has been unassigned. This issue is now available for others to pick up.`);
+                break;
+
+              case '/blocked':
+                await addLabel('status/blocked');
+                await removeLabel('status/in-progress');
+                await react('eyes');
+                const blockerDesc = args.length > 0 ? args.join(' ') : 'Not specified';
+                await reply(
+                  `🚧 @${author} flagged this as **blocked**.\n\n` +
+                  `**Blocker:** ${blockerDesc}\n\n` +
+                  `> Maintainers — please review and help unblock.`
+                );
+                break;
+
+              case '/eta':
+                if (args.length === 0) {
+                  await reply('**Usage:** `/eta <timeframe>` — e.g., `/eta 2 days`, `/eta Friday`');
+                  break;
+                }
+                const eta = args.join(' ');
+                await addLabel('status/in-progress');
+                await removeLabel('needs-triage');
+                await react('+1');
+                await reply(`⏰ @${author} estimates completion in **${eta}**.`);
+                break;
+
               // --- Assignment ---
               case '/assign':
                 const assignee = args[0] ? args[0].replace('@', '') : author;
@@ -247,6 +293,12 @@ jobs:
                   '| `/ai-tests` | Trigger AI test suggestions (PRs only) |\n' +
                   '| `/plan` | Generate AI solution plan (Issues only) |\n' +
                   '| `/replan` | Re-generate a fresh AI solution plan |\n\n' +
+                  '### Assignment Status\n' +
+                  '| Command | Description |\n|---|---|\n' +
+                  '| `/working` | Confirm you are actively working on this |\n' +
+                  '| `/not-working` | Unassign yourself from this issue |\n' +
+                  '| `/blocked [reason]` | Flag this as blocked |\n' +
+                  '| `/eta <timeframe>` | Set expected completion time |\n\n' +
                   '### Workflow\n' +
                   '| Command | Description |\n|---|---|\n' +
                   '| `/assign [@user]` | Assign issue/PR (defaults to you) |\n' +
