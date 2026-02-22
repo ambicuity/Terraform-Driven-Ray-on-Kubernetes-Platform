@@ -249,3 +249,32 @@ resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
   policy_arn = aws_iam_policy.cluster_autoscaler[0].arn
   role       = aws_iam_role.cluster_autoscaler[0].name
 }
+
+# AWS Node Termination Handler (Spot Interruption) IAM Role (IRSA)
+resource "aws_iam_role" "node_termination_handler" {
+  count       = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" ? 1 : 0
+  name_prefix = "${var.cluster_name}-nth-"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.cluster.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-node-termination-handler"
+          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "node_termination_handler" {
+  count      = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" ? 1 : 0
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess" # NTH requires SQS access to read ASG termination events
+  role       = aws_iam_role.node_termination_handler[0].name
+}

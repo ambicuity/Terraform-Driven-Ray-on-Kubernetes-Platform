@@ -95,6 +95,11 @@ output "cluster_autoscaler_iam_role_arn" {
   value       = var.enable_cluster_autoscaler ? aws_iam_role.cluster_autoscaler[0].arn : null
 }
 
+output "node_termination_handler_iam_role_arn" {
+  description = "IAM Role ARN for the AWS Node Termination Handler (IRSA)"
+  value       = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" ? aws_iam_role.node_termination_handler[0].arn : null
+}
+
 # Monitoring
 output "cloudwatch_log_group" {
   description = "CloudWatch log group name"

@@ -13,10 +13,14 @@ This module provides the necessary AWS infrastructure including VPC networking, 
 - **KMS Secret Encryption**: Kubernetes secrets are encrypted at rest using AWS KMS.
 - **EKS Cluster**: Provisions a fully functional EKS control plane.
 - **Node Groups**: Supports separate, autoscaling CPU and GPU node groups.
-- **GPU Spot Instances & Taints**: GPU nodes default to **SPOT** capacity for extreme cost optimization. They are also automatically tainted to prevent non-GPU workloads from consuming expensive resources.
+- **GPU Spot Instances & Fault Tolerance**: GPU nodes default to **SPOT** capacity for extreme cost optimization. Ray's built-in fault tolerance (via the object store and worker respawning) makes it inherently resilient to AWS Spot interruptions. Nodes are also automatically tainted to prevent non-GPU workloads from consuming expensive resources.
 - **Autoscaler Ready**: Configures IAM permissions and IRSA for the Kubernetes Cluster Autoscaler so you can easily deploy the Helm chart.
 
 ## Architecture
+
+![Architecture Diagram](diagrams/architecture.png)
+
+*(A conceptual high-level flow is provided below for immediate reference).*
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
