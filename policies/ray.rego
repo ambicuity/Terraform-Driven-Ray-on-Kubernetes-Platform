@@ -48,7 +48,7 @@ deny contains msg if {
 }
 
 # Package-level helper: one entry per worker group's maxReplicas
-worker_max_replicas[r] {
+worker_max_replicas contains r if {
     w := input.spec.workerGroupSpecs[_]
     r := w.maxReplicas
 }
@@ -71,7 +71,7 @@ deny contains msg if {
 }
 
 # Package-level helper: GPU allocation (maxReplicas * gpus) per GPU worker group
-gpu_counts[c] {
+gpu_counts contains c if {
     w := input.spec.workerGroupSpecs[_]
     gpu_req := w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]
     c := w.maxReplicas * parse_value(gpu_req)
