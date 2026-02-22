@@ -1,5 +1,8 @@
 # Basic terraform test configuration
-
+mock_provider "aws" {}
+mock_provider "kubernetes" {}
+mock_provider "helm" {}
+mock_provider "tls" {}
 variables {
   cluster_name = "test-cluster"
   region       = "us-east-1"
