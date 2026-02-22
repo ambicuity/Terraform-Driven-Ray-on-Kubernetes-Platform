@@ -8,7 +8,6 @@ import future.keywords.in
 
 # Default deny
 default allow = false
-default deny = false
 
 # Maximum allowed nodes per node group
 max_nodes_per_group := 20
