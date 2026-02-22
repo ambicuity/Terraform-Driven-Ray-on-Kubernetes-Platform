@@ -1,0 +1,25 @@
+name: TFSec
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.tf'
+      - '.github/workflows/tfsec.yml'
+
+jobs:
+  tfsec:
+    name: TFSec Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run TFSec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
+          github_token: ${{ github.token }}
