@@ -47,10 +47,16 @@ deny contains msg if {
     msg := sprintf("Worker group '%s' requests %dGi memory, exceeds limit of %dGi", [worker_group.groupName, memory_gb, max_memory_gb_per_worker])
 }
 
+# Package-level helper: one entry per worker group's maxReplicas
+worker_max_replicas[r] {
+    w := input.spec.workerGroupSpecs[_]
+    r := w.maxReplicas
+}
+
 # Deny if total workers exceed limit
 deny contains msg if {
     input.kind == "RayCluster"
-    total_max_workers := sum([w.maxReplicas | w := input.spec.workerGroupSpecs[_]])
+    total_max_workers := sum(worker_max_replicas)
     total_max_workers > max_total_workers
     msg := sprintf("Total max workers (%d) exceeds cluster limit (%d)", [total_max_workers, max_total_workers])
 }
@@ -64,14 +70,17 @@ deny contains msg if {
     msg := sprintf("Worker group '%s' requests %d GPUs, exceeds limit of %d", [worker_group.groupName, gpu, max_gpu_per_worker])
 }
 
+# Package-level helper: GPU allocation (maxReplicas * gpus) per GPU worker group
+gpu_counts[c] {
+    w := input.spec.workerGroupSpecs[_]
+    gpu_req := w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]
+    c := w.maxReplicas * parse_value(gpu_req)
+}
+
 # Deny if total GPU count exceeds limit
 deny contains msg if {
     input.kind == "RayCluster"
-    total_gpus := sum([
-        w.maxReplicas * parse_value(w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]) |
-        w := input.spec.workerGroupSpecs[_]
-        w.template.spec.containers[0].resources.requests["nvidia.com/gpu"]
-    ])
+    total_gpus := sum(gpu_counts)
     total_gpus > max_total_gpus
     msg := sprintf("Total max GPUs (%d) exceeds cluster limit (%d)", [total_gpus, max_total_gpus])
 }
