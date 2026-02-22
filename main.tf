@@ -1,7 +1,3 @@
-data "aws_vpc" "selected" {
-  id = var.vpc_id
-}
-
 # Security Group for EKS Nodes
 resource "aws_security_group" "node" {
   name_prefix = "${var.cluster_name}-node-"
@@ -13,7 +9,7 @@ resource "aws_security_group" "node" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = [data.aws_vpc.selected.cidr_block]
+    cidr_blocks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
   }
 
   tags = {
