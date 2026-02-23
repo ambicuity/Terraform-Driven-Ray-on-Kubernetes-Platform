@@ -60,7 +60,7 @@ This module provides the necessary AWS infrastructure including VPC networking, 
 │  │  │  ┌─────────────────┐    ┌─────────────────┐     │     │   │
 │  │  │  │  CPU Workers    │    │  GPU (Spot)     │     │     │   │
 │  │  │  │                 │    │                 │     │     │   │
-│  │  │  │ • m5.xlarge     │    │ • g4dn.xlarge   │     │     │   │
+│  │  │  │ • m6g.xlarge    │    │ • g4dn.xlarge   │     │     │   │
 │  │  │  │ • Autoscaling   │    │ • Autoscaling   │     │     │   │
 │  │  │  └─────────────────┘    └─────────────────┘     │     │   │
 │  │  │                                                  │     │   │
@@ -123,7 +123,7 @@ For a complete runnable example, see the [terraform/examples/complete](terraform
 | `subnet_ids` | List of subnet IDs | `list(string)` | n/a | yes |
 | `kms_key_arn` | ARN of KMS key for encryption | `string` | `""` | no |
 | `enable_gpu_nodes` | Whether to create a GPU node group | `bool` | `true` | no |
-| `cpu_node_instance_types` | Instance types for CPU nodes | `list(string)` | `["m5.xlarge", "m5a.xlarge"]` | no |
+| `cpu_node_instance_types` | Instance types for CPU nodes | `list(string)` | `["m6g.xlarge", "m6g.2xlarge"]` | no |
 | `cpu_node_min_size` | Minimum size of CPU node group | `number` | `2` | no |
 | `cpu_node_max_size` | Maximum size of CPU node group | `number` | `10` | no |
 | `gpu_node_instance_types` | Instance types for GPU nodes | `list(string)` | `["g4dn.xlarge"]` | no |
@@ -248,7 +248,7 @@ No modules.
 | <a name="input_commit_sha"></a> [commit\_sha](#input\_commit\_sha) | Git commit SHA for resource tagging | `string` | `"unknown"` | no |
 | <a name="input_cpu_capacity_type"></a> [cpu\_capacity\_type](#input\_cpu\_capacity\_type) | Capacity type for CPU worker nodes (ON\_DEMAND or SPOT) | `string` | `"ON_DEMAND"` | no |
 | <a name="input_cpu_node_desired_size"></a> [cpu\_node\_desired\_size](#input\_cpu\_node\_desired\_size) | Desired number of CPU worker nodes | `number` | `3` | no |
-| <a name="input_cpu_node_instance_types"></a> [cpu\_node\_instance\_types](#input\_cpu\_node\_instance\_types) | Instance types for CPU worker nodes | `list(string)` | <pre>[<br/>  "m5.xlarge",<br/>  "m5.2xlarge"<br/>]</pre> | no |
+| <a name="input_cpu_node_instance_types"></a> [cpu\_node\_instance\_types](#input\_cpu\_node\_instance\_types) | Instance types for CPU worker nodes | `list(string)` | <pre>[<br/>  "m6g.xlarge",<br/>  "m6g.2xlarge"<br/>]</pre> | no |
 | <a name="input_cpu_node_max_size"></a> [cpu\_node\_max\_size](#input\_cpu\_node\_max\_size) | Maximum number of CPU worker nodes | `number` | `10` | no |
 | <a name="input_cpu_node_min_size"></a> [cpu\_node\_min\_size](#input\_cpu\_node\_min\_size) | Minimum number of CPU worker nodes | `number` | `2` | no |
 | <a name="input_eks_addons"></a> [eks\_addons](#input\_eks\_addons) | Map of EKS addons to enable | `map(any)` | <pre>{<br/>  "coredns": {<br/>    "resolve_conflicts_on_create": "OVERWRITE",<br/>    "resolve_conflicts_on_update": "OVERWRITE"<br/>  },<br/>  "kube-proxy": {<br/>    "resolve_conflicts_on_create": "OVERWRITE",<br/>    "resolve_conflicts_on_update": "OVERWRITE"<br/>  },<br/>  "vpc-cni": {<br/>    "resolve_conflicts_on_create": "OVERWRITE",<br/>    "resolve_conflicts_on_update": "OVERWRITE"<br/>  }<br/>}</pre> | no |
@@ -263,12 +263,12 @@ No modules.
 | <a name="input_gpu_node_max_size"></a> [gpu\_node\_max\_size](#input\_gpu\_node\_max\_size) | Maximum number of GPU worker nodes | `number` | `5` | no |
 | <a name="input_gpu_node_min_size"></a> [gpu\_node\_min\_size](#input\_gpu\_node\_min\_size) | Minimum number of GPU worker nodes | `number` | `0` | no |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | The Amazon Resource Name (ARN) of the KMS key to use for envelope encryption of Kubernetes secrets. If not provided, a new key will be created. | `string` | `""` | no |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for EKS | `string` | `"1.28"` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for EKS | `string` | `"1.31"` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch log retention in days | `number` | `7` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS region for infrastructure deployment | `string` | `"us-east-1"` | no |
 | <a name="input_repo_name"></a> [repo\_name](#input\_repo\_name) | GitHub repository name for resource tagging | `string` | `"unknown"` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | List of subnet IDs to deploy the EKS cluster and worker nodes into (preferably private subnets) | `list(string)` | n/a | yes |
-| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | <pre>{<br/>  "Environment": "production",<br/>  "ManagedBy": "Terraform",<br/>  "Repository": "Terraform-Driven-Ray-on-Kubernetes-Platform",<br/>  "Service": "Ray-ML-Platform"<br/>}</pre> | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the existing VPC to deploy the EKS cluster into | `string` | n/a | yes |
 
 ## Outputs
