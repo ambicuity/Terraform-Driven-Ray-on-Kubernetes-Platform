@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
       - '.github/workflows/terraform-ci.yml'
 
 jobs:
@@ -22,15 +22,18 @@ jobs:
           terraform_version: "~> 1.7.0"
       
       - name: Terraform Format
-        run: terraform fmt -check -recursive .
+        run: terraform fmt -check -recursive terraform/
         
       - name: Terraform Init (Root)
+        working-directory: terraform
         run: terraform init -backend=false
 
       - name: Terraform Validate (Root)
+        working-directory: terraform
         run: terraform validate
 
       - name: Terraform Test (Root)
+        working-directory: terraform
         run: terraform test
         env:
           AWS_REGION: "us-east-1"
@@ -38,11 +41,11 @@ jobs:
           AWS_SECRET_ACCESS_KEY: "mock_secret_key"
         
       - name: Terraform Init (Example)
-        working-directory: examples/complete
+        working-directory: terraform/examples/complete
         run: terraform init -backend=false
         
       - name: Terraform Validate (Example)
-        working-directory: examples/complete
+        working-directory: terraform/examples/complete
         run: terraform validate
         
   opa-test:

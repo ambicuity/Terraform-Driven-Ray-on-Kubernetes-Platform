@@ -1,0 +1,62 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": "-- Grafana --",
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 1,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "title": "Ray Workers Total",
+            "type": "stat",
+            "targets": [
+                {
+                    "expr": "count(ray_node_info)",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "title": "GPU Utilization",
+            "type": "gauge",
+            "targets": [
+                {
+                    "expr": "avg(ray_gpu_utilization)",
+                    "refId": "A"
+                }
+            ]
+        }
+    ],
+    "schemaVersion": 36,
+    "style": "dark",
+    "tags": [
+        "ray",
+        "ml-platform"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-6h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Ray Cluster Health",
+    "uid": "ray_health",
+    "version": 1,
+    "weekStart": ""
+}

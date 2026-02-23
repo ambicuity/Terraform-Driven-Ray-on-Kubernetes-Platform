@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - 2026-02-23
+
+### Added
+- Automated Infrastructure Drift Detection workflow and reporting script.
+- Ray Chaos Resilience resilience test workload.
+- FinOps Governance policies (OPA) for cost guardrails.
+- Grafana Dashboards for Ray Health and EKS Cost Observability.
+- Unified root-level `Makefile` for developer experience.
+
+### Changed
+- Refactored repository structure: moved Terraform files to `terraform/` directory.
+- Updated all CI/CD workflows and documentation to reflect new directory structure.
 
 ### Added
 - Elite CI suite: Checkov, Infracost, terraform-docs, CodeQL, PR lint, stale bot

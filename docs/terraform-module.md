@@ -181,14 +181,14 @@ module "ray_eks_cluster" {
 
 ### Complete Example with Helm
 
-See [`examples/complete/`](../examples/complete/) for a fully runnable deployment that includes:
+See [`examples/complete/`](../terraform/examples/complete/) for a fully runnable deployment that includes:
 - VPC provisioning via `terraform-aws-modules/vpc/aws`
 - Cluster Autoscaler Helm chart
 - KubeRay Operator Helm chart
 
 ## Testing
 
-The module includes a native Terraform test at `tests/module.tftest.hcl` using `mock_provider` for offline validation:
+The module includes a native Terraform test at `terraform/tests/module.tftest.hcl` using `mock_provider` for offline validation:
 
 ```bash
 terraform test

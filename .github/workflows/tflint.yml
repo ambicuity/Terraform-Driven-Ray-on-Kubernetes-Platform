@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
       - '.tflint.hcl'
       - '.github/workflows/tflint.yml'
 
@@ -39,8 +39,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run TFLint (Root)
+        working-directory: terraform
         run: tflint -f compact
 
       - name: Run TFLint (Examples)
         run: tflint -f compact
-        working-directory: examples/complete
+        working-directory: terraform/examples/complete

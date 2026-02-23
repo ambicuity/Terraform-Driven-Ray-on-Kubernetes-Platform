@@ -48,7 +48,7 @@ graph TB
 
 ## Resource Inventory
 
-The module creates the following AWS resources (defined across `main.tf` and `node_pools.tf`):
+The module creates the following AWS resources (defined across `terraform/main.tf` and `terraform/node_pools.tf`):
 
 | Resource | Type | Purpose |
 |----------|------|---------|
@@ -84,7 +84,7 @@ VPC (e.g., 10.0.0.0/16)
     └── Private → NAT Gateway
 ```
 
-The complete example in `examples/complete/main.tf` provisions a VPC using the `terraform-aws-modules/vpc/aws` community module with 3-AZ private/public subnet layout.
+The complete example in `terraform/examples/complete/main.tf` provisions a VPC using the `terraform-aws-modules/vpc/aws` community module with 3-AZ private/public subnet layout.
 
 ## IAM Architecture
 
@@ -138,7 +138,7 @@ The same KMS key is used for CloudWatch log group encryption.
 - **Taint**: `nvidia.com/gpu=true:NoSchedule` — prevents non-GPU workloads
 - **Labels**: `ray.io/resource-type=gpu`, `nvidia.com/gpu=true`
 - **EBS**: 200 GiB gp3, encrypted, 3000 IOPS
-- **User Data**: Installs NVIDIA drivers and container runtime via `user-data-gpu.sh`
+- **User Data**: Installs NVIDIA drivers and container runtime via `terraform/user-data-gpu.sh`
 
 Both node groups use:
 - `create_before_destroy` lifecycle for zero-downtime updates

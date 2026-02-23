@@ -1,0 +1,27 @@
+{
+    "title": "EKS Cost Overview",
+    "panels": [
+        {
+            "title": "Hourly Spend (Estimated)",
+            "type": "stat",
+            "targets": [
+                {
+                    "expr": "sum(aws_eks_node_cost_hourly)",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "title": "Spot vs On-Demand Ratio",
+            "type": "piechart",
+            "targets": [
+                {
+                    "expr": "count by (capacity_type) (aws_eks_node_info)",
+                    "refId": "A"
+                }
+            ]
+        }
+    ],
+    "uid": "eks_cost",
+    "version": 1
+}

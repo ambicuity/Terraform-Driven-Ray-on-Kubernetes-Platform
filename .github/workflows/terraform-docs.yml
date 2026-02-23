@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
       - '.github/workflows/terraform-docs.yml'
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: Render terraform-docs (root module)
         uses: terraform-docs/gh-actions@v1
         with:
-          working-dir: .
+          working-dir: terraform
           output-file: README.md
           output-method: inject
           git-push: "true"
@@ -33,7 +33,7 @@ jobs:
       - name: Render terraform-docs (examples/complete)
         uses: terraform-docs/gh-actions@v1
         with:
-          working-dir: examples/complete
+          working-dir: terraform/examples/complete
           output-file: README.md
           output-method: inject
           git-push: "true"

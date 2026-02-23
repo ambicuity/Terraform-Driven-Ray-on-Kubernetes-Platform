@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
 
 jobs:
   infracost:
@@ -31,22 +31,29 @@ jobs:
 
       - name: Generate Infracost baseline
         run: |
+          # The terraform/ directory might not exist in the base branch yet
+          BASE_PATH="base-branch/terraform"
+          if [ ! -d "$BASE_PATH" ]; then
+            BASE_PATH="base-branch"
+          fi
           infracost breakdown \
-            --path=base-branch \
+            --path="$BASE_PATH" \
             --format=json \
             --out-file=/tmp/infracost-base.json
 
       - name: Generate Infracost diff
         run: |
           infracost diff \
-            --path=. \
+            --path=terraform \
             --format=json \
             --compare-to=/tmp/infracost-base.json \
             --out-file=/tmp/infracost-diff.json
 
       - name: Post Infracost comment
-        uses: infracost/actions/comment@v3
-        with:
-          path: /tmp/infracost-diff.json
-          # Show a single comment, update it on subsequent pushes
-          behavior: update
+        run: |
+          infracost comment github \
+            --path=/tmp/infracost-diff.json \
+            --repo=$GITHUB_REPOSITORY \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --github-token=${{ github.token }} \
+            --behavior=update
