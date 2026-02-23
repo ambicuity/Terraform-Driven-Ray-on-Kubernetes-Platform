@@ -54,21 +54,13 @@ data "aws_iam_policy_document" "velero_trust" {
 
     condition {
       test     = "StringEquals"
-<<<<<<< HEAD
       variable = "${replace(local.oidc_provider_url, "https://", "")}:sub"
-=======
-      variable = "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub"
->>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
       values   = ["system:serviceaccount:velero:velero-server"]
     }
 
     principals {
       type        = "Federated"
-<<<<<<< HEAD
       identifiers = [local.oidc_provider_arn]
-=======
-      identifiers = [aws_iam_openid_connect_provider.cluster.arn]
->>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
     }
   }
 }
@@ -131,11 +123,15 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
 # Velero Helm Release
 resource "helm_release" "velero" {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
   count            = var.enable_velero ? 1 : 0
   name             = "velero"
   repository       = "https://vmware-tanzu.github.io/helm-charts"
   chart            = "velero"
   namespace        = "velero"
+<<<<<<< HEAD
   create_namespace = true
   version          = "5.1.3"
 =======
@@ -147,6 +143,10 @@ resource "helm_release" "velero" {
   create_namespace = true
   version    = "5.1.3"
 >>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
+=======
+  create_namespace = true
+  version          = "5.1.3"
+>>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
 
   values = [
     <<-EOT
