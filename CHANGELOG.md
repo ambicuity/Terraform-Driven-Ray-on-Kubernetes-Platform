@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - Phase 3
+### Added
+- feat: Implemented Multi-AZ pod Topology Spread Constraints for Ray workers (#17)
+- feat: Provisioned Velero for AWS S3 automated cluster backups and DRS (#17)
+- feat: Tuned KubeRay autoscaler idleTimeout down to 30s for FinOps (#17)
+
 ## [Unreleased] - Phase 2.1
 ### Added
 - MIT License headers to all operational scripts.

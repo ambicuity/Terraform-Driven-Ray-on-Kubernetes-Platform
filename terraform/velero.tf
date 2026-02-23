@@ -117,13 +117,13 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
 
 # Velero Helm Release
 resource "helm_release" "velero" {
-  count      = var.enable_velero ? 1 : 0
-  name       = "velero"
-  repository = "https://vmware-tanzu.github.io/helm-charts"
-  chart      = "velero"
-  namespace  = "velero"
+  count            = var.enable_velero ? 1 : 0
+  name             = "velero"
+  repository       = "https://vmware-tanzu.github.io/helm-charts"
+  chart            = "velero"
+  namespace        = "velero"
   create_namespace = true
-  version    = "5.1.3"
+  version          = "5.1.3"
 
   values = [
     <<-EOT
