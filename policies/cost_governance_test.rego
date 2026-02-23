@@ -7,30 +7,30 @@ import rego.v1
 # ---------------------------------------------------------------------------
 
 test_expensive_instance_denied if {
-    input := {"resource_changes": [
+    mock_input := {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
             "type": "aws_eks_node_group",
             "change": {"after": {"instance_types": ["p3.8xlarge"]}}
         }
     ]}
-    count(deny) == 1
-    contains(deny[_], "Expensive instance type 'p3.8xlarge'")
+    deny contains msg with input as mock_input
+    contains(msg, "Expensive instance type 'p3.8xlarge'")
 }
 
 test_standard_instance_allowed if {
-    input := {"resource_changes": [
+    mock_input := {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
             "type": "aws_eks_node_group",
             "change": {"after": {"instance_types": ["g4dn.xlarge"]}}
         }
     ]}
-    count(deny) == 0
+    count(deny) == 0 with input as mock_input
 }
 
 test_gpu_on_demand_warns if {
-    input := {"resource_changes": [
+    mock_input := {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
             "type": "aws_eks_node_group",
@@ -40,12 +40,12 @@ test_gpu_on_demand_warns if {
             }}
         }
     ]}
-    count(warn) == 1
-    contains(warn[_], "ON_DEMAND capacity")
+    warn contains msg with input as mock_input
+    contains(msg, "ON_DEMAND capacity")
 }
 
 test_budget_limit_denied if {
-    input := {"resource_changes": [
+    mock_input := {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
             "type": "aws_eks_node_group",
@@ -55,6 +55,6 @@ test_budget_limit_denied if {
             }}
         }
     ]}
-    count(deny) == 1
-    contains(deny[_], "exceeds the safety limit of 20")
+    deny contains msg with input as mock_input
+    contains(msg, "exceeds the safety limit of 20")
 }

@@ -50,8 +50,10 @@ jobs:
             --out-file=/tmp/infracost-diff.json
 
       - name: Post Infracost comment
-        uses: infracost/actions/comment@v3
-        with:
-          path: /tmp/infracost-diff.json
-          # Show a single comment, update it on subsequent pushes
-          behavior: update
+        run: |
+          infracost comment github \
+            --path=/tmp/infracost-diff.json \
+            --repo=$GITHUB_REPOSITORY \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --github-token=${{ github.token }} \
+            --behavior=update
