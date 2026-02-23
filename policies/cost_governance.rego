@@ -1,5 +1,6 @@
 package terraform.cost
 
+import rego.v1
 import input.plan as tfplan
 
 # ---------------------------------------------------------------------------
@@ -7,7 +8,7 @@ import input.plan as tfplan
 # ---------------------------------------------------------------------------
 
 # Deny if any EKS node group is using expensive instance types without justification
-deny[msg] {
+deny contains msg if {
     some i
     node_group = tfplan.resource_changes[i]
     node_group.type == "aws_eks_node_group"
@@ -23,7 +24,7 @@ deny[msg] {
 }
 
 # Warn if GPU nodes are requested in ON_DEMAND capacity
-warn[msg] {
+warn contains msg if {
     some i
     node_group = tfplan.resource_changes[i]
     node_group.type == "aws_eks_node_group"
@@ -40,7 +41,7 @@ warn[msg] {
 }
 
 # Deny if total desired CPU capacity exceeds 20 nodes (Budget Guardrail)
-deny[msg] {
+deny contains msg if {
     total_cpu := sum([count | 
         some i
         resource := tfplan.resource_changes[i]

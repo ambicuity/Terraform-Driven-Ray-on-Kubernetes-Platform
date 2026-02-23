@@ -1,10 +1,12 @@
 package terraform.cost
 
+import rego.v1
+
 # ---------------------------------------------------------------------------
 # OPA Unit Tests for Cost Governance
 # ---------------------------------------------------------------------------
 
-test_expensive_instance_denied {
+test_expensive_instance_denied if {
     input := {"plan": {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
@@ -16,7 +18,7 @@ test_expensive_instance_denied {
     contains(deny[_], "Expensive instance type 'p3.8xlarge'")
 }
 
-test_standard_instance_allowed {
+test_standard_instance_allowed if {
     input := {"plan": {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
@@ -27,7 +29,7 @@ test_standard_instance_allowed {
     count(deny) == 0
 }
 
-test_gpu_on_demand_warns {
+test_gpu_on_demand_warns if {
     input := {"plan": {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",
@@ -42,7 +44,7 @@ test_gpu_on_demand_warns {
     contains(warn[_], "ON_DEMAND capacity")
 }
 
-test_budget_limit_denied {
+test_budget_limit_denied if {
     input := {"plan": {"resource_changes": [
         {
             "address": "aws_eks_node_group.ml_workers",

@@ -31,8 +31,13 @@ jobs:
 
       - name: Generate Infracost baseline
         run: |
+          # The terraform/ directory might not exist in the base branch yet
+          BASE_PATH="base-branch/terraform"
+          if [ ! -d "$BASE_PATH" ]; then
+            BASE_PATH="base-branch"
+          fi
           infracost breakdown \
-            --path=base-branch/terraform \
+            --path="$BASE_PATH" \
             --format=json \
             --out-file=/tmp/infracost-base.json
 
