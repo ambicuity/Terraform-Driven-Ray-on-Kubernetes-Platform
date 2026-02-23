@@ -90,7 +90,7 @@ graph LR
 | `ai-issue-solver.yml` | Issue opened, `/plan` command | AI solution planning for issues |
 | `ai-test-engineer.yml` | PR opened/synchronize | AI-generated test suggestions |
 | `ai-duplicate-detector.yml` | Issue opened | Duplicate issue detection |
-| `ai-doc-sync.yml` | PR merged, push to main | Documentation sync and validation |
+| `ai-doc-sync.yml` | PR opened/updated | Documentation sync and validation |
 
 ---
 
