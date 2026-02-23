@@ -220,3 +220,14 @@ variable "tags" {
 }
 
 
+variable "enable_velero" {
+  description = "Whether to enable Velero for cluster disaster recovery and backups."
+  type        = bool
+  default     = false
+}
+
+variable "velero_backup_schedule" {
+  description = "Cron expression for automated cluster backups (default: every night at 2 AM)."
+  type        = string
+  default     = "0 2 * * *"
+}

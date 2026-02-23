@@ -151,3 +151,12 @@ output "access_instructions" {
        See GitHub Actions workflow for automated deployment
   EOT
 }
+output "velero_backup_bucket_name" {
+  description = "The name of the S3 bucket used for Velero cluster backups"
+  value       = var.enable_velero ? aws_s3_bucket.velero_backups[0].id : null
+}
+
+output "velero_iam_role_arn" {
+  description = "The ARN of the IAM Role for Service Accounts (IRSA) used by Velero"
+  value       = var.enable_velero ? aws_iam_role.velero_irsa[0].arn : null
+}
