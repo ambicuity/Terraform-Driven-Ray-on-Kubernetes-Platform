@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - Phase 2.1
+### Added
+- MIT License headers to all operational scripts.
+- Mandatory `Service` and `Environment` tags for FinOps tracking.
+- Graviton (m6g) support for CPU node groups.
+
+### Changed
+- Upgraded EKS cluster to version 1.31.
+- Optimized cost by migrating from m5 to m6g instances.
+
+### Fixed
+- Unused `os` import in `chaos_test.py`.
+- OPA v1.0 syntax compatibility for cost governance policies.
+
 ## [Unreleased] - 2026-02-23
 
 ### Added

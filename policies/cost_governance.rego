@@ -48,7 +48,7 @@ deny contains msg if {
         # Count standard CPU families (m5, m6g)
         some t
         instance_type := resource.change.after.instance_types[t]
-        re_match("^(m5|m6g)\\.", instance_type)
+        regex.match("^(m5|m6g)\\.", instance_type)
         count := resource.change.after.scaling_config[0].desired_size
     ])
     
