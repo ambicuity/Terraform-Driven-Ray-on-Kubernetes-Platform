@@ -1,7 +1,6 @@
-package terraform.cost
+package terraform
 
 import rego.v1
-import input.plan as tfplan
 
 # ---------------------------------------------------------------------------
 # FinOps Governance Policies
@@ -10,7 +9,7 @@ import input.plan as tfplan
 # Deny if any EKS node group is using expensive instance types without justification
 deny contains msg if {
     some i
-    node_group = tfplan.resource_changes[i]
+    node_group = input.resource_changes[i]
     node_group.type == "aws_eks_node_group"
     
     # Check instance types
@@ -26,7 +25,7 @@ deny contains msg if {
 # Warn if GPU nodes are requested in ON_DEMAND capacity
 warn contains msg if {
     some i
-    node_group = tfplan.resource_changes[i]
+    node_group = input.resource_changes[i]
     node_group.type == "aws_eks_node_group"
     
     # Look for GPU labels or instance types
@@ -44,7 +43,7 @@ warn contains msg if {
 deny contains msg if {
     total_cpu := sum([count | 
         some i
-        resource := tfplan.resource_changes[i]
+        resource := input.resource_changes[i]
         resource.type == "aws_eks_node_group"
         # Only count m5 family (CPU nodes)
         some t
