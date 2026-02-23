@@ -51,7 +51,7 @@ variable "subnet_ids" {
 variable "kubernetes_version" {
   description = "Kubernetes version for EKS"
   type        = string
-  default     = "1.28"
+  default     = "1.31"
 }
 
 variable "kms_key_arn" {
@@ -90,7 +90,7 @@ variable "eks_addons" {
 variable "cpu_node_instance_types" {
   description = "Instance types for CPU worker nodes"
   type        = list(string)
-  default     = ["m5.xlarge", "m5.2xlarge"]
+  default     = ["m6g.xlarge", "m6g.2xlarge"]
 }
 
 variable "cpu_node_min_size" {
@@ -211,7 +211,12 @@ variable "log_retention_days" {
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)
-  default     = {}
+  default = {
+    ManagedBy   = "Terraform"
+    Environment = "production"
+    Service     = "Ray-ML-Platform"
+    Repository  = "Terraform-Driven-Ray-on-Kubernetes-Platform"
+  }
 }
 
 

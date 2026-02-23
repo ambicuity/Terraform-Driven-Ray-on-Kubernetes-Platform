@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# MIT License
+# Copyright (c) 2026 ambicuity
 """
 Bursty Training Workload for Ray Cluster
 Demonstrates autoscaling behavior with deterministic burst patterns

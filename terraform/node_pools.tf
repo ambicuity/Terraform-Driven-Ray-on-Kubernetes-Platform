@@ -5,6 +5,7 @@ resource "aws_eks_node_group" "cpu_workers" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
   instance_types  = var.cpu_node_instance_types
+  ami_type        = "AL2023_ARM_64_STANDARD"
 
   scaling_config {
     desired_size = var.cpu_node_desired_size

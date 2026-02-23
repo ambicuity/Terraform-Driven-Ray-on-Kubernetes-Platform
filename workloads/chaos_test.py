@@ -1,6 +1,7 @@
+# MIT License
+# Copyright (c) 2026 ambicuity
 import ray
 import time
-import os
 import random
 import sys
 
