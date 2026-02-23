@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '**/*.tf'
+      - 'terraform/**/*.tf'
       - '**/*.py'
       - 'helm/**'
 
@@ -40,7 +40,7 @@ jobs:
           fi
 
           # Check if main.tf or module structure changed
-          if echo "$CHANGED" | grep -qE "(main\.tf|node_pools\.tf|modules/)"; then
+          if echo "$CHANGED" | grep -qE "(terraform/main\.tf|terraform/node_pools\.tf|terraform/modules/)"; then
             if ! echo "$CHANGED" | grep -q "README.md"; then
               WARNINGS="$WARNINGS\n- ⚠️ Core module files changed — architecture description in README may need updating"
             fi

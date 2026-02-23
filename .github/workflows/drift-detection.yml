@@ -1,0 +1,60 @@
+name: Infrastructure Drift Detection
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  drift-check:
+    name: Check for Drift
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write     # Required for OIDC
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7.0"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Assumes OIDC is configured as per Phase 1 docs
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan (Detailed Exit Code)
+        id: plan
+        working-directory: terraform
+        run: |
+          # 0 = success, no drift
+          # 1 = error
+          # 2 = success, drift detected
+          terraform plan -detailed-exitcode -out=drift.binary || exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          if [ $exit_code -eq 2 ]; then
+            terraform show -json drift.binary > drift.json
+          fi
+        continue-on-error: true
+
+      - name: Run Drift Detector Script
+        if: steps.plan.outputs.exit_code == '2'
+        run: python3 scripts/drift_detector.py terraform/drift.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Report Success
+        if: steps.plan.outputs.exit_code == '0'
+        run: echo "No drift detected. Infrastructure is in sync."

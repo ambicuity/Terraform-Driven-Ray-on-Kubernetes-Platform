@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
 
 jobs:
   infracost:
@@ -32,14 +32,14 @@ jobs:
       - name: Generate Infracost baseline
         run: |
           infracost breakdown \
-            --path=base-branch \
+            --path=base-branch/terraform \
             --format=json \
             --out-file=/tmp/infracost-base.json
 
       - name: Generate Infracost diff
         run: |
           infracost diff \
-            --path=. \
+            --path=terraform \
             --format=json \
             --compare-to=/tmp/infracost-base.json \
             --out-file=/tmp/infracost-diff.json

@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - '**.tf'
+      - 'terraform/**.tf'
       - '.github/workflows/tfsec.yml'
 
 jobs:

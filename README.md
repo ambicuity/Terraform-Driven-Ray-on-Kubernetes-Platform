@@ -82,7 +82,7 @@ Here is a minimal example of how to use this module:
 
 ```hcl
 module "ray_eks_cluster" {
-  source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform"
+  source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform//terraform"
 
   cluster_name = "my-ray-cluster"
   region       = "us-east-1"
@@ -102,7 +102,7 @@ module "ray_eks_cluster" {
 }
 ```
 
-For a complete runnable example, see the [examples/complete](examples/complete) directory.
+For a complete runnable example, see the [terraform/examples/complete](terraform/examples/complete) directory.
 
 ## Requirements
 
@@ -130,7 +130,7 @@ For a complete runnable example, see the [examples/complete](examples/complete) 
 | `gpu_node_min_size` | Minimum size of GPU node group | `number` | `0` | no |
 | `gpu_node_max_size` | Maximum size of GPU node group | `number` | `5` | no |
 
-*(For a full list of inputs, see `variables.tf`)*
+*(For a full list of inputs, see [variables.tf](terraform/variables.tf))*
 
 ## Outputs
 
@@ -141,7 +141,7 @@ For a complete runnable example, see the [examples/complete](examples/complete) 
 | `kubeconfig_command` | Command to configure kubectl |
 | `cluster_autoscaler_iam_role_arn` | IAM Role ARN for Cluster Autoscaler |
 
-*(For a full list of outputs, see `outputs.tf`)*
+*(For a full list of outputs, see [outputs.tf](terraform/outputs.tf))*
 
 ## Deploying Workloads (Helm/Operators)
 
@@ -150,6 +150,18 @@ This module handles the heavy lifting of the AWS infrastructure natively. Additi
 1. **Cluster Autoscaler**: Native scaling tied to your IAM IRSA role.
 2. **KubeRay Operator**: The Ray ML control plane, ready immediately.
 
+## Developer Experience
+
+This repository includes a `Makefile` for local development and CI consistency:
+
+```bash
+make help      # Show available commands
+make lint      # Run tflint, checkov, and flake8
+make fmt       # Format terraform and python files
+make validate  # Validate terraform configuration
+make test      # Run terraform and python tests
+```
+
 If you leverage the module via the complete example, you can literally `terraform apply` and have a production-ready Ray platform available moments later without running a single manual `helm install` command.
 
 An example Ray configuration (`values.yaml`) for a bursty Ray workload is provided in the `helm/ray/` directory of this repository for reference.
@@ -157,6 +169,21 @@ An example Ray configuration (`values.yaml`) for a bursty Ray workload is provid
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Technical Documentation
+
+Deep technical reference material is located in the `docs/` directory:
+
+- [Architecture Reference](docs/architecture.md)
+- [Terraform Module Reference](docs/terraform-module.md)
+- [AI Automation Guide](docs/ai-automation.md)
+- [CI/CD Pipeline Catalog](docs/ci-cd-pipelines.md)
+- [Security & Compliance](docs/security.md)
+- [Multi-layer Autoscaling](docs/autoscaling.md)
+- [Operations & Troubleshooting](docs/operations-guide.md)
+- [Contributor Guide](docs/contributing.md)
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
