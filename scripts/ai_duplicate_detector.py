@@ -70,7 +70,7 @@ def github_api(url: str) -> dict:
 
 def fetch_all_issues() -> list:
     """Fetch all open issues (excluding the new one)."""
-    issues = []
+    issues: list[dict] = []
     page = 1
     while page <= 5:  # Cap at 5 pages (500 issues)
         url = (
