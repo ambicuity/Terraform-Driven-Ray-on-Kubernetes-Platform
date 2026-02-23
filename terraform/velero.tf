@@ -3,6 +3,12 @@ resource "aws_s3_bucket" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = "${var.cluster_name}-velero-backups-${var.region}"
 
+  # checkov:skip=CKV_AWS_145: KMS encryption incurs per-request costs; AES256 is sufficient for FinOps
+  # checkov:skip=CKV_AWS_144: Cross-region replication doubles storage costs
+  # checkov:skip=CKV_AWS_18: Access logging creates unnecessary storage costs for automated backups
+  # checkov:skip=CKV_AWS_300: Velero manages the lifecycle and retention of backups natively
+  # checkov:skip=CKV2_AWS_61: Lifecycle configuration is managed by Velero naturally
+  # checkov:skip=CKV2_AWS_62: Event notifications are unnecessary for automated backups
   tags = {
     Name        = "${var.cluster_name}-velero-backups-bucket"
     Service     = "Ray"
