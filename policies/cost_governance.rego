@@ -45,9 +45,10 @@ deny contains msg if {
         some i
         resource := input.resource_changes[i]
         resource.type == "aws_eks_node_group"
-        # Only count m5 family (CPU nodes)
+        # Count standard CPU families (m5, m6g)
         some t
-        contains(resource.change.after.instance_types[t], "m5")
+        instance_type := resource.change.after.instance_types[t]
+        re_match("^(m5|m6g)\\.", instance_type)
         count := resource.change.after.scaling_config[0].desired_size
     ])
     

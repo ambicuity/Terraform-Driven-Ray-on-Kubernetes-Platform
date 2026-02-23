@@ -30,7 +30,9 @@ allowed_cpu_instance_types := [
     "m5.large",
     "m5.xlarge",
     "m5.2xlarge",
-    "m5.4xlarge"
+    "m5.4xlarge",
+    "m6g.xlarge",
+    "m6g.2xlarge"
 ]
 
 allowed_gpu_instance_types := [

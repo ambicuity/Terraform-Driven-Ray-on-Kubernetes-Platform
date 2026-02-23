@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# MIT License
+# Copyright (c) 2026 ambicuity
 """
 Gemini AI PR Reviewer — CodeRabbit-style automated code review.
 
