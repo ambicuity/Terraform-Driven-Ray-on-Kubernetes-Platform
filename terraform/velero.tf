@@ -3,7 +3,6 @@ resource "aws_s3_bucket" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = "${var.cluster_name}-velero-backups-${var.region}"
 
-  # checkov:skip=CKV_AWS_145: KMS encryption incurs per-request costs; AES256 is sufficient for FinOps
   # checkov:skip=CKV_AWS_144: Cross-region replication doubles storage costs
   # checkov:skip=CKV_AWS_18: Access logging creates unnecessary storage costs for automated backups
   # checkov:skip=CKV_AWS_300: Velero manages the lifecycle and retention of backups natively
@@ -55,13 +54,21 @@ data "aws_iam_policy_document" "velero_trust" {
 
     condition {
       test     = "StringEquals"
+<<<<<<< HEAD
       variable = "${replace(local.oidc_provider_url, "https://", "")}:sub"
+=======
+      variable = "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub"
+>>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
       values   = ["system:serviceaccount:velero:velero-server"]
     }
 
     principals {
       type        = "Federated"
+<<<<<<< HEAD
       identifiers = [local.oidc_provider_arn]
+=======
+      identifiers = [aws_iam_openid_connect_provider.cluster.arn]
+>>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
     }
   }
 }
@@ -123,6 +130,7 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
 
 # Velero Helm Release
 resource "helm_release" "velero" {
+<<<<<<< HEAD
   count            = var.enable_velero ? 1 : 0
   name             = "velero"
   repository       = "https://vmware-tanzu.github.io/helm-charts"
@@ -130,6 +138,15 @@ resource "helm_release" "velero" {
   namespace        = "velero"
   create_namespace = true
   version          = "5.1.3"
+=======
+  count      = var.enable_velero ? 1 : 0
+  name       = "velero"
+  repository = "https://vmware-tanzu.github.io/helm-charts"
+  chart      = "velero"
+  namespace  = "velero"
+  create_namespace = true
+  version    = "5.1.3"
+>>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
 
   values = [
     <<-EOT
