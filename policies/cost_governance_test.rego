@@ -14,7 +14,8 @@ test_expensive_instance_denied if {
             "change": {"after": {"instance_types": ["p3.8xlarge"]}}
         }
     ]}
-    deny contains msg with input as mock_input
+    d := deny with input as mock_input
+    some msg in d
     contains(msg, "Expensive instance type 'p3.8xlarge'")
 }
 
@@ -26,7 +27,8 @@ test_standard_instance_allowed if {
             "change": {"after": {"instance_types": ["g4dn.xlarge"]}}
         }
     ]}
-    count(deny) == 0 with input as mock_input
+    d := deny with input as mock_input
+    count(d) == 0
 }
 
 test_gpu_on_demand_warns if {
@@ -40,7 +42,8 @@ test_gpu_on_demand_warns if {
             }}
         }
     ]}
-    warn contains msg with input as mock_input
+    w := warn with input as mock_input
+    some msg in w
     contains(msg, "ON_DEMAND capacity")
 }
 
@@ -55,6 +58,7 @@ test_budget_limit_denied if {
             }}
         }
     ]}
-    deny contains msg with input as mock_input
+    d := deny with input as mock_input
+    some msg in d
     contains(msg, "exceeds the safety limit of 20")
 }
