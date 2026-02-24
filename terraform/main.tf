@@ -152,10 +152,28 @@ data "tls_certificate" "cluster" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
-resource "aws_iam_openid_connect_provider" "cluster" {
+# Problem #4 Fix: Split OIDC provider to prevent perpetual thumbprint drift
+resource "aws_iam_openid_connect_provider" "cluster_managed" {
+  count           = var.enable_oidc_thumbprint_management ? 1 : 0
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = [data.tls_certificate.cluster.certificates[0].sha1_fingerprint]
   url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "cluster_unmanaged" {
+  count           = var.enable_oidc_thumbprint_management ? 0 : 1
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [] # AWS populates this automatically
+  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+
+  lifecycle {
+    ignore_changes = [thumbprint_list]
+  }
+}
+
+locals {
+  oidc_provider_arn = var.enable_oidc_thumbprint_management ? aws_iam_openid_connect_provider.cluster_managed[0].arn : aws_iam_openid_connect_provider.cluster_unmanaged[0].arn
+  oidc_provider_url = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
 # IAM Role for Nodes

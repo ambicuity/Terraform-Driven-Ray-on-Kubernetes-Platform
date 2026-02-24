@@ -233,13 +233,13 @@ resource "aws_iam_role" "cluster_autoscaler" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = aws_iam_openid_connect_provider.cluster.arn
+        Federated = local.oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:cluster-autoscaler"
-          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:aud" = "sts.amazonaws.com"
+          "${replace(local.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:cluster-autoscaler"
+          "${replace(local.oidc_provider_url, "https://", "")}:aud" = "sts.amazonaws.com"
         }
       }
     }]
@@ -262,13 +262,13 @@ resource "aws_iam_role" "node_termination_handler" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = aws_iam_openid_connect_provider.cluster.arn
+        Federated = local.oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-node-termination-handler"
-          "${replace(aws_iam_openid_connect_provider.cluster.url, "https://", "")}:aud" = "sts.amazonaws.com"
+          "${replace(local.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-node-termination-handler"
+          "${replace(local.oidc_provider_url, "https://", "")}:aud" = "sts.amazonaws.com"
         }
       }
     }]
@@ -279,4 +279,14 @@ resource "aws_iam_role_policy_attachment" "node_termination_handler" {
   count      = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess" # NTH requires SQS access to read ASG termination events
   role       = aws_iam_role.node_termination_handler[0].name
+}
+
+# Problem #3 Fix: Add graceful drain hook to GPU spot nodes
+resource "aws_autoscaling_lifecycle_hook" "ray_graceful_drain" {
+  count                  = var.enable_gpu_nodes ? 1 : 0
+  name                   = "${var.cluster_name}-ray-drain-hook"
+  autoscaling_group_name = aws_eks_node_group.gpu_workers[0].resources[0].autoscaling_groups[0].name
+  lifecycle_transition   = "autoscaling:EC2_INSTANCE_TERMINATING"
+  heartbeat_timeout      = 300
+  default_result         = "CONTINUE"
 }

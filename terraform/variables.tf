@@ -60,6 +60,12 @@ variable "kms_key_arn" {
   default     = ""
 }
 
+variable "enable_oidc_thumbprint_management" {
+  description = "Whether Terraform should manage the OIDC thumbprint. Set to false to prevent perpetual drift where AWS populates the thumbprint natively."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_endpoint_public_access" {
   description = "Enable public access to cluster endpoint"
   type        = bool

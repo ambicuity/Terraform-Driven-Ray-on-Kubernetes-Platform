@@ -55,13 +55,13 @@ data "aws_iam_policy_document" "velero_trust" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      variable = "${replace(local.oidc_provider_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:velero:velero-server"]
     }
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.cluster.arn]
+      identifiers = [local.oidc_provider_arn]
     }
   }
 }

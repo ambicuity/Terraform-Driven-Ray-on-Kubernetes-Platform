@@ -36,6 +36,11 @@ output "cluster_oidc_issuer_url" {
   value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
+output "oidc_provider_arn" {
+  description = "ARN of the OIDC provider used for IRSA (IAM Roles for Service Accounts)"
+  value       = local.oidc_provider_arn
+}
+
 output "kubeconfig_command" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${var.region}"

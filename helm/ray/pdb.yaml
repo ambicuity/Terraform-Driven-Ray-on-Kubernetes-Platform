@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ray-cpu-worker-pdb
+  namespace: ray-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      ray.io/node-type: worker
+      ray.io/resource-type: cpu
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ray-gpu-worker-pdb
+  namespace: ray-system
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      ray.io/node-type: worker
+      ray.io/resource-type: gpu
