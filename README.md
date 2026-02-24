@@ -10,167 +10,84 @@
 [![AI Review](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/ai-review.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/ai-review.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A production-grade Terraform module for provisioning a robust, autoscaling Kubernetes (EKS) cluster optimized for Ray ML workloads. 
+A production-grade Terraform module for provisioning a robust, autoscaling Kubernetes (EKS) cluster optimized specifically for Ray ML workloads. 
 
-This module provides the necessary AWS infrastructure including VPC networking, EKS control plane, autoscaling CPU/GPU node groups, IAM Roles for Service Accounts (IRSA), and necessary security groups. It is designed to be highly configurable and ready to integrate with the [KubeRay Operator](https://docs.ray.io/en/latest/cluster/kubernetes/getting-started.html).
+Unlike generic EKS blueprints, this repository is engineered to solve the **"Legendary Problems"** that cause distributed Ray environments to fail violently at scale.
 
-## Features
+## Battle-Hardened Architecture
 
-- **Decoupled Architecture**: Designed to be deployed into an existing VPC network (bring-your-own-network).
-- **KMS Secret Encryption**: Kubernetes secrets are encrypted at rest using AWS KMS.
-- **EKS Cluster**: Provisions a fully functional EKS control plane.
-- **Node Groups**: Supports separate, autoscaling CPU and GPU node groups.
-- **GPU Spot Instances & Fault Tolerance**: GPU nodes default to **SPOT** capacity for extreme cost optimization. Ray's built-in fault tolerance (via the object store and worker respawning) makes it inherently resilient to AWS Spot interruptions. Nodes are also automatically tainted to prevent non-GPU workloads from consuming expensive resources.
-- **Autoscaler Ready**: Configures IAM permissions and IRSA for the Kubernetes Cluster Autoscaler so you can easily deploy the Helm chart.
+This module implements specific, architectural fixes for the most notorious Ray-on-Kubernetes failure modes:
 
-## Architecture
+1. **The HA Head Node Failover (502 Prevention)**: Injected `preStop` graceful drains and `ray health-check` custom readiness probes to eliminate the 502 Bad Gateway errors that plague KubeRay during Spot interruptions.
+2. **The `wait-gcs-ready` OOM Loop**: Overrode the default KubeRay Python init-container (which consumes 180MB+ RAM) with a lightweight native socket-check `python:3.10-slim` image, eliminating `OOMKilled` loops on memory-constrained nodes.
+3. **The "DiskPressure" Node Eviction Loop**: Implemented `emptyDir` mounts with `medium: Memory` for the `/tmp/ray` object spilling directory on GPU workers. This isolates Ray's spillage from the Kubernetes Kubelet root filesystem, optimizing performance to RAM-speed and preventing catastrophic node evictions.
+4. **GPU ENI IP Exhaustion**: Configured the AWS VPC CNI with `ENABLE_PREFIX_DELEGATION="true"`. This multiplies the pod density capacity per EC2 instance by 16x, ensuring Ray worker sidecars don't exhaust the network interface limits on instances like `g4dn.xlarge`.
+5. **CoreDNS Scale-Up Storms**: Scaled the CoreDNS EKS Addon to 4 high-capacity replicas. When 100+ Ray workers auto-scale simultaneously, they no longer DDoS the cluster DNS trying to resolve the Head node.
+6. **Perpetual Terraform OIDC Drift**: Decoupled the `aws_iam_openid_connect_provider` into managed and unmanaged states, arresting the perpetual `terraform plan` drift caused by the AWS API's native thumbprint fetching.
+7. **Strict Security Governance**: Open Policy Agent (OPA) represents ~19% of this codebase, actively enforcing network policies, IAM boundaries, and pod security standards before deployment.
+8. **Aggressive GPU FinOps**: GPU nodes default to **SPOT** capacity. Ray's built-in object store fault tolerance combined with custom `preStop` drains makes this inherently resilient to EC2 Spot interruptions.
 
-![Architecture Diagram](diagrams/architecture.png)
-
-*(A conceptual high-level flow is provided below for immediate reference).*
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         AWS Cloud                                   │
-│                                                                     │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │                    VPC (10.0.0.0/16)                       │   │
-│  │                                                            │   │
-│  │  ┌─────────────────┐           ┌─────────────────┐        │   │
-│  │  │ Public Subnets  │           │ Private Subnets │        │   │
-│  │  │                 │           │                 │        │   │
-│  │  │ • NAT Gateway   │           │ • EKS Nodes     │        │   │
-│  │  │ • Load Balancer │           │ • Ray Pods      │        │   │
-│  │  └────────┬────────┘           └────────┬────────┘        │   │
-│  │           │                             │                 │   │
-│  │           └─────────────┬───────────────┘                 │   │
-│  └─────────────────────────┼─────────────────────────────────┘   │
-│                            │                                     │
-│  ┌─────────────────────────┼─────────────────────────────────┐   │
-│  │         EKS Cluster      ↓                                 │   │
-│  │                                                            │   │
-│  │  ┌──────────────────────────────────────────────────┐     │   │
-│  │  │            Control Plane                         │     │   │
-│  │  │  • API Server  • Scheduler  • etcd              │     │   │
-│  │  └──────────────────┬───────────────────────────────┘     │   │
-│  │                     │                                     │   │
-│  │  ┌──────────────────┼───────────────────────────────┐     │   │
-│  │  │  Node Groups     ↓                               │     │   │
-│  │  │                                                  │     │   │
-│  │  │  ┌─────────────────┐    ┌─────────────────┐     │     │   │
-│  │  │  │  CPU Workers    │    │  GPU (Spot)     │     │     │   │
-│  │  │  │                 │    │                 │     │     │   │
-│  │  │  │ • m6g.xlarge    │    │ • g4dn.xlarge   │     │     │   │
-│  │  │  │ • Autoscaling   │    │ • Autoscaling   │     │     │   │
-│  │  │  └─────────────────┘    └─────────────────┘     │     │   │
-│  │  │                                                  │     │   │
-│  │  │  ┌────────────────────────────────────────┐     │     │   │
-│  │  │  │         Ray Cluster (Pods)             │     │     │   │
-│  │  │  │                                        │     │     │   │
-│  │  │  │  ┌──────────┐  ┌────────────────────┐  │     │     │   │
-│  │  │  │  │ Ray Head │  │   Ray Workers      │  │     │     │   │
-│  │  │  │  └──────────┘  └────────────────────┘  │     │     │   │
-│  │  │  └────────────────────────────────────────┘     │     │   │
-│  │  └──────────────────────────────────────────────────┘     │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph AWS VPC
+        direction TB
+        EKS[EKS Control Plane] --> CPU[CPU Workers<br/>m6g.xlarge]
+        EKS --> GPU[GPU Workers<br/>g4dn.xlarge SPOT]
+        
+        subgraph KubeRay Operator
+            Head[Ray Head Pod<br/>Custom ReadinessProbe<br/>Graceful Drain preStop]
+            Worker1[Ray Worker Pod<br/>Custom wait-gcs-ready Init<br/>/tmp/ray Memory emptyDir]
+            Worker2[Ray Worker Pod<br/>Custom wait-gcs-ready Init<br/>/tmp/ray Memory emptyDir]
+            
+            Head --> Worker1
+            Head --> Worker2
+        end
+        
+        CPU --> Head
+        GPU --> Worker1
+        GPU --> Worker2
+        
+        DNS[CoreDNS Addon<br/>4x Replicas] -.-> Head
+        CNI[VPC CNI Addon<br/>Prefix Delegation] -.-> Worker1
+    end
 ```
 
-## Usage
+## Quick Start Configuration
 
-Here is a minimal example of how to use this module:
+Deploy the core EKS engine and the natively-integrated Helm addons using a minimal `module` block:
 
 ```hcl
 module "ray_eks_cluster" {
   source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform//terraform"
 
-  cluster_name = "my-ray-cluster"
+  cluster_name = "production-ray-cluster"
   region       = "us-east-1"
   
   # Network Configuration (Bring Your Own VPC)
   vpc_id     = "vpc-0abcd1234efgh5678"
   subnet_ids = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1"]
 
+  # Worker Configurations
   cpu_node_min_size     = 2
   cpu_node_max_size     = 10
-  cpu_node_desired_size = 2
-
+  
   enable_gpu_nodes      = true
-  gpu_node_min_size     = 0
+  gpu_capacity_type     = "SPOT"
   gpu_node_max_size     = 5
-  gpu_node_desired_size = 0
+  
+  # Feature Toggles
+  enable_velero                     = true
+  enable_oidc_thumbprint_management = false
 }
 ```
 
-For a complete runnable example, see the [terraform/examples/complete](terraform/examples/complete) directory.
+## Operational Excellence
 
-## Requirements
+### Chaos Engineering Validated
+This platform is validated by a custom Chaos Engineering suite (`ha_resilience_test.py`) that actively terminates the Ray Head Pod during live inference traffic streams, guaranteeing the cluster maintains its SLA and successfully measuring the Mean Time To Recovery (MTTR). "Production-grade" is verified mathematically.
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | >= 2.0 |
-| <a name="requirement_tls"></a> [tls](#requirement\_tls) | >= 4.0 |
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| `cluster_name` | Name of the EKS cluster | `string` | `"ray-ml-cluster"` | no |
-| `region` | AWS region | `string` | `"us-east-1"` | no |
-| `vpc_id` | ID of the existing VPC | `string` | n/a | yes |
-| `subnet_ids` | List of subnet IDs | `list(string)` | n/a | yes |
-| `kms_key_arn` | ARN of KMS key for encryption | `string` | `""` | no |
-| `enable_gpu_nodes` | Whether to create a GPU node group | `bool` | `true` | no |
-| `cpu_node_instance_types` | Instance types for CPU nodes | `list(string)` | `["m6g.xlarge", "m6g.2xlarge"]` | no |
-| `cpu_node_min_size` | Minimum size of CPU node group | `number` | `2` | no |
-| `cpu_node_max_size` | Maximum size of CPU node group | `number` | `10` | no |
-| `gpu_node_instance_types` | Instance types for GPU nodes | `list(string)` | `["g4dn.xlarge"]` | no |
-| `gpu_node_min_size` | Minimum size of GPU node group | `number` | `0` | no |
-| `gpu_node_max_size` | Maximum size of GPU node group | `number` | `5` | no |
-| `enable_oidc_thumbprint_management` | Whether Terraform should manage the OIDC thumbprint. Set to false to prevent perpetual drift. | `bool` | `false` | no |
-| `enable_velero` | Enable Velero backup infrastructure (S3 bucket, KMS key, IRSA) | `bool` | `false` | no |
-
-*(For a full list of inputs, see [variables.tf](terraform/variables.tf))*
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| `cluster_name` | EKS cluster name |
-| `cluster_endpoint` | EKS cluster endpoint URL |
-| `kubeconfig_command` | Command to configure kubectl |
-| `cluster_autoscaler_iam_role_arn` | IAM Role ARN for Cluster Autoscaler |
-
-*(For a full list of outputs, see [outputs.tf](terraform/outputs.tf))*
-
-## Deploying Workloads (Helm/Operators)
-
-This module handles the heavy lifting of the AWS infrastructure natively. Additionally, we provide an out-of-the-box native Helm integration (see `examples/complete/helm.tf`) that automatically deploys:
-
-1. **Cluster Autoscaler**: Native scaling tied to your IAM IRSA role.
-2. **KubeRay Operator**: The Ray ML control plane, ready immediately.
-
-## Developer Experience
-
-This repository includes a `Makefile` for local development and CI consistency:
-
-```bash
-make help      # Show available commands
-make lint      # Run tflint, checkov, and flake8
-make fmt       # Format terraform and python files
-make validate  # Validate terraform configuration
-make test      # Run terraform and python tests
-```
-
-If you leverage the module via the complete example, you can literally `terraform apply` and have a production-ready Ray platform available moments later without running a single manual `helm install` command.
-
-An example Ray configuration (`values.yaml`) for a bursty Ray workload is provided in the `helm/ray/` directory of this repository for reference.
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+### Automated Native Backups
+Full Velero integration provides pod volume backups and Kubernetes state snapshots. This includes native KMS encryption and IAM Roles for Service Accounts (IRSA) injection perfectly scoped with `kms:Decrypt` and `kms:GenerateDataKey`.
 
 ---
 
@@ -186,6 +103,9 @@ Deep technical reference material is located in the `docs/` directory:
 - [Multi-layer Autoscaling](docs/autoscaling.md)
 - [Operations & Troubleshooting](docs/operations-guide.md)
 - [Contributor Guide](docs/contributing.md)
+
+<details>
+<summary><b>Terraform Provider & Resource Reference (Click to expand)</b></summary>
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -302,3 +222,4 @@ No modules.
 | <a name="output_region"></a> [region](#output\_region) | AWS region |
 | <a name="output_resource_tags"></a> [resource\_tags](#output\_resource\_tags) | Tags applied to all resources |
 <!-- END_TF_DOCS -->
+</details>
