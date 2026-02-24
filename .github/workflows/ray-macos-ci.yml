@@ -41,8 +41,8 @@ env:
 
 jobs:
   ray-macos-validation:
-    name: Ray Cluster Validation (macos-14 / M1)
-    runs-on: macos-14          # Apple M1 — closest to user's M2
+    name: Ray Cluster Validation (macos-13 / Intel)
+    runs-on: macos-13          # Intel x86_64 — supports nested virtualization proxy
     timeout-minutes: 45
 
     steps:
@@ -60,14 +60,13 @@ jobs:
             /opt/homebrew/Cellar/helm
             /opt/homebrew/Cellar/docker
             /opt/homebrew/Cellar/colima
-            /opt/homebrew/Cellar/qemu
-          key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
-          restore-keys: homebrew-macos14-
+          key: homebrew-macos13-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
+          restore-keys: homebrew-macos13-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install minikube, helm, docker, colima, qemu
+      - name: Install minikube, helm, docker, colima
         run: |
-          brew install minikube helm docker colima qemu || true
+          brew install minikube helm docker colima || true
           minikube version
           helm version --short
           colima version
@@ -83,11 +82,10 @@ jobs:
         run: pip install --upgrade pip "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
       # ── 5: Start minikube with colima (docker) driver ────────────────────────
-      # Colima natively provides a docker daemon on macOS without Desktop GUI requirements.
-      # Uses qemu backend because VZ framework is unstable on GH Action runners.
+      # Uses colima's default vm backend on the macOS Intel runner.
       - name: Start minikube
         run: |
-          colima start --cpu 3 --memory 5 --arch aarch64 --vm-type=qemu
+          colima start --cpu 3 --memory 5 --arch x86_64
           minikube start \
             --driver=docker \
             --cpus=3 \
