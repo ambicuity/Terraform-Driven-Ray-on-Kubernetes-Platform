@@ -56,15 +56,20 @@ jobs:
         with:
           path: |
             ~/Library/Caches/Homebrew
+            /opt/homebrew/Cellar/minikube
             /opt/homebrew/Cellar/helm
+            /opt/homebrew/Cellar/docker
+            /opt/homebrew/Cellar/colima
           key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
           restore-keys: homebrew-macos14-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install helm
+      - name: Install minikube, helm, docker, colima
         run: |
-          brew install helm || true
+          brew install minikube helm docker colima || true
+          minikube version
           helm version --short
+          colima version
 
       # ── 4: Python setup ──────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -76,16 +81,19 @@ jobs:
       - name: Install Python dependencies
         run: pip install --upgrade pip "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
-      # ── 5: Start minikube with GitHub Action ──────────────────────────────
-      # Uses medikoo/setup-minikube which explicitly supports Apple Silicon macos-14.
+      # ── 5: Start minikube with colima (docker) driver ────────────────────────
+      # Colima natively provides a docker daemon on macOS without Desktop GUI requirements.
+      # Uses qemu backend because VZ framework is unstable on GH Action runners.
       - name: Start minikube
-        uses: medikoo/setup-minikube@v1
-        with:
-          kubernetes-version: 'v1.29.3'
-          minikube-version: 'latest'
-      
-      - name: Verify Cluster
-        run: kubectl cluster-info
+        run: |
+          colima start --cpu 3 --memory 5 --arch aarch64 --vm-type=qemu
+          minikube start \
+            --driver=docker \
+            --cpus=3 \
+            --memory=4096 \
+            --kubernetes-version=v1.29.3 \
+            --wait=all
+          kubectl cluster-info
 
       # ── 6: Install KubeRay Operator ─────────────────────────────────────────
       - name: Add KubeRay Helm repo
