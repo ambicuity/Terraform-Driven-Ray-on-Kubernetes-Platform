@@ -206,7 +206,8 @@ gpuWorkers:
       
   volumes:
     - name: ray-tmp
-      emptyDir: {}
+      emptyDir:
+        medium: Memory
   
   # Node selector for GPU nodes
   nodeSelector:
