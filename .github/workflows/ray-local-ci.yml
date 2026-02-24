@@ -113,9 +113,9 @@ jobs:
       # ── 3: minikube ──────────────────────────────────────────────────────────
       - name: Install minikube
         run: |
-          curl -LsSf https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+          sudo curl -LsSf https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
             -o /usr/local/bin/minikube
-          chmod +x /usr/local/bin/minikube
+          sudo chmod +x /usr/local/bin/minikube
           minikube version
 
       - name: Start minikube
