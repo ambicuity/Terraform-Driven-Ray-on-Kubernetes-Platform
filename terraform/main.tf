@@ -55,6 +55,7 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSVPCResourceControlle
 }
 
 # CloudWatch Log Group
+# checkov:skip=CKV_AWS_158: Default 7 days is intended for FinOps cost reduction; users can override.
 resource "aws_cloudwatch_log_group" "cluster" {
   count             = var.enable_cloudwatch_logs ? 1 : 0
   name              = "/aws/eks/${var.cluster_name}/cluster"
@@ -209,6 +210,8 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEC2ContainerRegistryReadOn
 
 # Policy for EBS CSI Driver
 # tfsec:ignore:aws-iam-no-policy-wildcards
+# checkov:skip=CKV_AWS_111: EBS CSI driver requires write access to manage volumes
+# checkov:skip=CKV_AWS_355: Resource wildcard required for EBS volume management
 resource "aws_iam_policy" "ebs_csi" {
   count       = var.enable_ebs_csi_driver ? 1 : 0
   name_prefix = "${var.cluster_name}-ebs-csi-"

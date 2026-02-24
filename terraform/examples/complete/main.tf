@@ -13,6 +13,7 @@ provider "kubernetes" {
 }
 
 module "vpc" {
+  # checkov:skip=CKV_TF_1: Reference standard registry module version
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.5.3"
 

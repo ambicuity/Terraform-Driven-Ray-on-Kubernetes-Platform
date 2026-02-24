@@ -89,7 +89,7 @@ def run_chaos_test():
     
     try:
         # Wait for all tasks to complete despite the pod deletion
-        results = ray.get(futures, timeout=120)
+        ray.get(futures, timeout=120)
         end_time = time.time()
         
         mttr_seconds = (end_time - start_time)
