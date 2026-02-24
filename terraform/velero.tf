@@ -112,6 +112,15 @@ data "aws_iam_policy_document" "velero_s3_ebs" {
     ]
     resources = [aws_s3_bucket.velero_backups[0].arn]
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:GenerateDataKey",
+      "kms:Decrypt"
+    ]
+    resources = [aws_kms_key.velero[0].arn]
+  }
 }
 
 resource "aws_iam_role_policy" "velero_irsa_inline" {
