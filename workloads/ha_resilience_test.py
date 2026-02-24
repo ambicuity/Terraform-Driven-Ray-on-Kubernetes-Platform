@@ -2,9 +2,7 @@
 # MIT License
 # Copyright (c) 2026 ambicuity
 
-import ray
 import time
-import requests
 import threading
 import sys
 import subprocess

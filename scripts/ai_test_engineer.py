@@ -116,10 +116,10 @@ def call_gemini(prompt: str) -> str:
             body = e.read().decode("utf-8", errors="replace")
             if e.code in (429, 500, 503) and attempt < 3:
                 delay = [10, 30, 60][attempt]
-                print(f"Gemini {e.code} — retry in {delay}s...", file=sys.stderr)
+                print(f"Gemini {e.code} ({body}) — retry in {delay}s...", file=sys.stderr)
                 time.sleep(delay)
                 continue
-            return f"⚠️ Gemini API error: {e.code}"
+            return f"⚠️ Gemini API error: {e.code} - {body}"
 
     return "⚠️ Gemini API failed after retries."
 

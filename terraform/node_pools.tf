@@ -188,6 +188,8 @@ resource "aws_launch_template" "gpu_workers" {
 
 # Cluster Autoscaler IAM Policy
 # tfsec:ignore:aws-iam-no-policy-wildcards
+# checkov:skip=CKV_AWS_111: Autoscaler requires write access for node scaling
+# checkov:skip=CKV_AWS_355: Resource wildcard required for autoscaling
 resource "aws_iam_policy" "cluster_autoscaler" {
   count       = var.enable_cluster_autoscaler ? 1 : 0
   name_prefix = "${var.cluster_name}-autoscaler-"
