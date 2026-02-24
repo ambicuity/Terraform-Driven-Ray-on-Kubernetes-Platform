@@ -125,6 +125,15 @@ data "aws_iam_policy_document" "velero_s3_ebs" {
     ]
     resources = [aws_s3_bucket.velero_backups[0].arn]
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:GenerateDataKey",
+      "kms:Decrypt"
+    ]
+    resources = [aws_kms_key.velero[0].arn]
+  }
 }
 
 resource "aws_iam_role_policy" "velero_irsa_inline" {
@@ -136,31 +145,13 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
 
 # Velero Helm Release
 resource "helm_release" "velero" {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
   count            = var.enable_velero ? 1 : 0
   name             = "velero"
   repository       = "https://vmware-tanzu.github.io/helm-charts"
   chart            = "velero"
   namespace        = "velero"
-<<<<<<< HEAD
   create_namespace = true
   version          = "5.1.3"
-=======
-  count      = var.enable_velero ? 1 : 0
-  name       = "velero"
-  repository = "https://vmware-tanzu.github.io/helm-charts"
-  chart      = "velero"
-  namespace  = "velero"
-  create_namespace = true
-  version    = "5.1.3"
->>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
-=======
-  create_namespace = true
-  version          = "5.1.3"
->>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
 
   values = [
     <<-EOT
