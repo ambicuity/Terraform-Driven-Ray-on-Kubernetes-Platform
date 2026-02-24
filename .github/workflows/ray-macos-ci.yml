@@ -58,18 +58,17 @@ jobs:
             ~/Library/Caches/Homebrew
             /opt/homebrew/Cellar/minikube
             /opt/homebrew/Cellar/helm
-            /opt/homebrew/Cellar/docker
-            /opt/homebrew/Cellar/colima
+            /opt/homebrew/Cellar/podman
           key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
           restore-keys: homebrew-macos14-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install minikube, helm, docker, colima
+      - name: Install minikube, helm, podman
         run: |
-          brew install minikube helm docker colima || true
+          brew install minikube helm podman || true
           minikube version
           helm version --short
-          colima version
+          podman --version
 
       # ── 4: Python setup ──────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -81,14 +80,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install --upgrade pip "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
-      # ── 5: Start minikube with colima (docker) driver ────────────────────────
-      # Mirrors the exact same stable local colima configuration.
+      # ── 5: Start minikube with podman driver ────────────────────────────────
+      # Podman sets up its own encapsulated QEMU VM correctly on macos-14.
       # Uses 3 CPUs / 5 GB RAM — safe on an M1 GitHub runner (7 GB available).
-      - name: Start minikube (docker/colima)
+      - name: Start minikube (podman)
         run: |
-          colima start --cpu 3 --memory 5 --arch aarch64
+          podman machine init --cpus 3 --memory 5120
+          podman machine start
           minikube start \
-            --driver=docker \
+            --driver=podman \
             --cpus=3 \
             --memory=4096 \
             --kubernetes-version=v1.29.3 \
