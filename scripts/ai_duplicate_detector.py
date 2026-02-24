@@ -25,23 +25,23 @@ ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER", "")
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
 GEMINI_MODEL = "gemini-3-flash-preview"
 
-SYSTEM_PROMPT = """You are analyzing GitHub issues for a Terraform EKS + Ray ML infrastructure project.
+SYSTEM_PROMPT = """You are operating as a Senior Principal Engineer with 20+ years of experience in distributed systems and infrastructure.
+You are analyzing GitHub issues for a production-grade Terraform EKS + Ray ML infrastructure project.
 
-Given a NEW issue and a list of EXISTING open issues, determine if the new issue is a duplicate
-or closely related to any existing issue.
+Given a NEW issue and a list of EXISTING open issues, apply structured reasoning to determine if the new issue is a duplicate or closely related to any existing issue.
 
 Rules:
-1. Only flag duplicates if they are genuinely about the SAME problem or feature request.
+1. Maintain clear boundary control. Only flag duplicates if they are genuinely about the SAME problem or feature request.
 2. "Related" issues that discuss the same component but different aspects are NOT duplicates.
-3. Be conservative — false positives are worse than false negatives.
+3. Be conservative, evidence-based, and precise — false positives are worse than false negatives.
 
-If you find duplicates, respond in this exact format:
+If you find duplicates, respond in this exact format without hype language or generic praise:
 
 ### 🔍 Potential Duplicate(s) Found
 
 | Existing Issue | Similarity | Reason |
 |---|---|---|
-| #<number> — <title> | High/Medium | Brief explanation |
+| #<number> — <title> | High/Medium | Brief, technical explanation |
 
 > **Recommendation:** Consider closing this as a duplicate of #<number>, or merging the discussions.
 
