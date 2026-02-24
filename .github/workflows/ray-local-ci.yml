@@ -172,6 +172,7 @@ jobs:
               rayStartParams:
                 dashboard-host: "0.0.0.0"
                 num-cpus: "1"
+                object-store-memory: "536870912"
               template:
                 spec:
                   containers:
@@ -195,6 +196,7 @@ jobs:
                 maxReplicas: 2
                 rayStartParams:
                   num-cpus: "1"
+                  object-store-memory: "536870912"
                 template:
                   spec:
                     containers:
