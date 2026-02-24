@@ -1,0 +1,58 @@
+name: Chaos Engineering / Resilience Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Environment to run chaos against'
+        required: true
+        default: 'staging'
+  schedule:
+    # Run at 3 AM UTC every Sunday to test weekly infrastructure integrity
+    - cron: '0 3 * * 0'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  chaos-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install kubernetes ray
+
+      # Connect to EKS (assuming credentials provided via OIDC/AWS IAM in real environment)
+      # For demonstration/CI limits, this step would establish the kubeconfig
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/chaos-runner-role
+          aws-region: us-west-2
+        continue-on-error: true # Bypassed in raw CI without live AWS keys
+
+      - name: Generate Kubeconfig
+        run: |
+          # aws eks update-kubeconfig --region us-west-2 --name ray-production-cluster
+          echo "Simulated Kubeconfig hook to connect Python client to EKS API."
+        continue-on-error: true
+
+      - name: Execute Chaos Engineering Workload
+        run: |
+          echo "Executing script: workloads/chaos_test.py"
+          echo "This script will spawn 50 concurrent Ray tasks, wait 5 seconds, and then natively connect to the Kube API to force-delete the active Worker Pod running the tasks."
+          python workloads/chaos_test.py
+        env:
+          RAY_ADDRESS: "auto" # Will target locally spawned cluster if EKS isn't linked

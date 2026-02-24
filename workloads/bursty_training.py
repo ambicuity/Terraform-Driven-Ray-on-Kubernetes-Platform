@@ -103,7 +103,7 @@ class BurstyWorkloadOrchestrator:
         phase_start = time.time()
         
         # Create worker tasks
-        workers = [WorkerTask.remote(i) for i in range(num_tasks)]
+        workers = [WorkerTask.remote(i) for i in range(num_tasks)]  # type: ignore[attr-defined]
         
         # Launch all tasks in parallel
         futures = [worker.compute_intensive_work.remote(task_duration, matrix_size) 

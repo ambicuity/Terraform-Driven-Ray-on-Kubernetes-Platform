@@ -29,6 +29,23 @@ head:
       persistentVolumeClaim:
         claimName: ray-head-storage
   
+  # Problem #1 Fix: Custom readinessProbe to ensure GCS is ready
+  readinessProbe:
+    exec:
+      command: ["ray", "health-check"]
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+  # Problem #1 Fix: Graceful termination to prevent 502s
+  lifecycle:
+    preStop:
+      exec:
+        command: ["/bin/sh", "-c", "ray stop --grace-period=30 && sleep 5"]
+  
+  terminationGracePeriodSeconds: 60
+  
   # Service configuration
   service:
     type: ClusterIP
@@ -36,6 +53,15 @@ head:
       dashboard: 8265
       client: 10001
       redis: 6379
+  
+  # Topology Spread Constraints for High Availability
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          ray.io/node-type: head
   
   # Labels and annotations
   labels:
@@ -76,11 +102,53 @@ cpuWorkers:
   # No tolerations needed (standard nodes)
   tolerations: []
   
+  # Topology Spread Constraints for High Availability
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          ray.io/node-type: worker
+          ray.io/resource-type: cpu
+          
   labels:
     ray.io/node-type: worker
     ray.io/resource-type: cpu
     app: ray
     component: worker
+
+  # Problem #2 Fix: Override injected GCS init container to avoid OOM
+  initContainers:
+    - name: wait-gcs-ready
+      # Fallback to pure bash/python to avoid 180MB memory footprint of "ray health-check"
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Waiting for GCS to become ready..."
+          python -c "
+          import socket, time, os
+          host = os.environ.get('RAY_IP', 'ray-cluster-head-svc')
+          port = 6379 
+          timeout = 300
+          start = time.time()
+          while time.time() - start < timeout:
+              try:
+                  socket.create_connection((host, port), timeout=2)
+                  print('GCS is reachable.')
+                  exit(0)
+              except Exception:
+                  time.sleep(2)
+          print('GCS not reachable after timeout.')
+          exit(1)
+          "
+      resources:
+        limits:
+          cpu: "100m"
+          memory: "512Mi"
+        requests:
+          cpu: "50m"
+          memory: "128Mi"
   
   # Autoscaling configuration
   autoscaling:
@@ -134,12 +202,54 @@ gpuWorkers:
       operator: Equal
       value: "true"
       effect: NoSchedule
+      
+  # Topology Spread Constraints for High Availability
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          ray.io/node-type: worker
+          ray.io/resource-type: gpu
   
   labels:
     ray.io/node-type: worker
     ray.io/resource-type: gpu
     app: ray
     component: gpu-worker
+
+  # Problem #2 Fix: Override injected GCS init container to avoid OOM
+  initContainers:
+    - name: wait-gcs-ready
+      # Fallback to pure bash/python to avoid 180MB memory footprint of "ray health-check"
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Waiting for GCS to become ready..."
+          python -c "
+          import socket, time, os
+          host = os.environ.get('RAY_IP', 'ray-cluster-head-svc')
+          port = 6379 
+          timeout = 300
+          start = time.time()
+          while time.time() - start < timeout:
+              try:
+                  socket.create_connection((host, port), timeout=2)
+                  print('GCS is reachable.')
+                  exit(0)
+              except Exception:
+                  time.sleep(2)
+          print('GCS not reachable after timeout.')
+          exit(1)
+          "
+      resources:
+        limits:
+          cpu: "100m"
+          memory: "512Mi"
+        requests:
+          cpu: "50m"
+          memory: "128Mi"
   
   # GPU autoscaling
   autoscaling:
@@ -175,8 +285,12 @@ dashboard:
 autoscaler:
   enabled: true
   
+  # Delegate autoscaling to the KubeRay operator
+  enableInTreeAutoscaling: true
+  
   # Idle timeout before scaling down (seconds)
-  idleTimeoutSeconds: 60
+  # Reduced to 30s for aggressive FinOps cost savings
+  idleTimeoutSeconds: 30
   
   # Resource requests/limits for autoscaler
   resources:
@@ -227,8 +341,8 @@ rayConfig:
   # Upscaling speed
   upscalingSpeed: 1.0
   
-  # Idle timeout
-  idleTimeoutMinutes: 5
+  # Idle timeout (matched to aggressive 30s autoscaler, 1 min is min here)
+  idleTimeoutMinutes: 1
   
   # Resource requests
   headNodeType: "head-node"

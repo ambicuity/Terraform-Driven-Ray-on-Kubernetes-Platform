@@ -60,6 +60,12 @@ variable "kms_key_arn" {
   default     = ""
 }
 
+variable "enable_oidc_thumbprint_management" {
+  description = "Whether Terraform should manage the OIDC thumbprint. Set to false to prevent perpetual drift where AWS populates the thumbprint natively."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_endpoint_public_access" {
   description = "Enable public access to cluster endpoint"
   type        = bool
@@ -220,3 +226,14 @@ variable "tags" {
 }
 
 
+variable "enable_velero" {
+  description = "Whether to enable Velero for cluster disaster recovery and backups."
+  type        = bool
+  default     = false
+}
+
+variable "velero_backup_schedule" {
+  description = "Cron expression for automated cluster backups (default: every night at 2 AM)."
+  type        = string
+  default     = "0 2 * * *"
+}

@@ -36,6 +36,11 @@ output "cluster_oidc_issuer_url" {
   value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
+output "oidc_provider_arn" {
+  description = "ARN of the OIDC provider used for IRSA (IAM Roles for Service Accounts)"
+  value       = local.oidc_provider_arn
+}
+
 output "kubeconfig_command" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${var.region}"
@@ -150,4 +155,13 @@ output "access_instructions" {
     4. Deploy Ray cluster:
        See GitHub Actions workflow for automated deployment
   EOT
+}
+output "velero_backup_bucket_name" {
+  description = "The name of the S3 bucket used for Velero cluster backups"
+  value       = var.enable_velero ? aws_s3_bucket.velero_backups[0].id : null
+}
+
+output "velero_iam_role_arn" {
+  description = "The ARN of the IAM Role for Service Accounts (IRSA) used by Velero"
+  value       = var.enable_velero ? aws_iam_role.velero_irsa[0].arn : null
 }
