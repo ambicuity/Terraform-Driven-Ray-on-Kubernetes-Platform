@@ -86,7 +86,7 @@ jobs:
       # Uses 3 CPUs / 5 GB RAM — safe on an M1 GitHub runner (7 GB available).
       - name: Start minikube (docker/colima)
         run: |
-          colima start --cpu 3 --memory 5 --arch aarch64 --vm-type=vz --vz-rosetta
+          colima start --cpu 3 --memory 5 --arch aarch64
           minikube start \
             --driver=docker \
             --cpus=3 \
