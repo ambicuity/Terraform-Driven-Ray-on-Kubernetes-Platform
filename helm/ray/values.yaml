@@ -94,6 +94,14 @@ cpuWorkers:
     limits:
       cpu: "4"
       memory: "8Gi"
+      
+  volumeMounts:
+    - name: ray-tmp
+      mountPath: /tmp/ray
+      
+  volumes:
+    - name: ray-tmp
+      emptyDir: {}
   
   # Node selector for CPU nodes
   nodeSelector:
@@ -191,6 +199,14 @@ gpuWorkers:
       cpu: "8"
       memory: "32Gi"
       nvidia.com/gpu: "1"
+      
+  volumeMounts:
+    - name: ray-tmp
+      mountPath: /tmp/ray
+      
+  volumes:
+    - name: ray-tmp
+      emptyDir: {}
   
   # Node selector for GPU nodes
   nodeSelector:

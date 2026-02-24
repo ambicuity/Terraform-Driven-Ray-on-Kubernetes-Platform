@@ -79,6 +79,7 @@ variable "eks_addons" {
     vpc-cni = {
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
+      configuration_values        = "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\"}}"
     }
     kube-proxy = {
       resolve_conflicts_on_create = "OVERWRITE"
@@ -87,6 +88,7 @@ variable "eks_addons" {
     coredns = {
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
+      configuration_values        = "{\"replicaCount\":4,\"resources\":{\"limits\":{\"cpu\":\"200m\",\"memory\":\"256Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"128Mi\"}}}"
     }
   }
 }
