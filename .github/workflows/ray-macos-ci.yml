@@ -56,19 +56,15 @@ jobs:
         with:
           path: |
             ~/Library/Caches/Homebrew
-            /opt/homebrew/Cellar/minikube
             /opt/homebrew/Cellar/helm
-            /opt/homebrew/Cellar/podman
           key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
           restore-keys: homebrew-macos14-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install minikube, helm, podman
+      - name: Install helm
         run: |
-          brew install minikube helm podman || true
-          minikube version
+          brew install helm || true
           helm version --short
-          podman --version
 
       # ── 4: Python setup ──────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -80,20 +76,17 @@ jobs:
       - name: Install Python dependencies
         run: pip install --upgrade pip "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
-      # ── 5: Start minikube with podman driver ────────────────────────────────
-      # Podman sets up its own encapsulated QEMU VM correctly on macos-14.
-      # Uses 3 CPUs / 5 GB RAM — safe on an M1 GitHub runner (7 GB available).
-      - name: Start minikube (podman)
-        run: |
-          podman machine init --cpus 3 --memory 5120
-          podman machine start
-          minikube start \
-            --driver=podman \
-            --cpus=3 \
-            --memory=4096 \
-            --kubernetes-version=v1.29.3 \
-            --wait=all
-          kubectl cluster-info
+      # ── 5: Start minikube with GitHub Action ──────────────────────────────
+      # Uses the mature setup-minikube action which automatically handles macOS drivers.
+      - name: Start minikube
+        uses: manusa/actions-setup-minikube@v2.13.1
+        with:
+          minikube version: 'v1.33.0'
+          kubernetes version: 'v1.29.3'
+          github token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Verify Cluster
+        run: kubectl cluster-info
 
       # ── 6: Install KubeRay Operator ─────────────────────────────────────────
       - name: Add KubeRay Helm repo
