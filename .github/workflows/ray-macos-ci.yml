@@ -58,17 +58,18 @@ jobs:
             ~/Library/Caches/Homebrew
             /opt/homebrew/Cellar/minikube
             /opt/homebrew/Cellar/helm
-            /opt/homebrew/Cellar/qemu
+            /opt/homebrew/Cellar/docker
+            /opt/homebrew/Cellar/colima
           key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
           restore-keys: homebrew-macos14-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install minikube, helm, qemu
+      - name: Install minikube, helm, docker, colima
         run: |
-          brew install minikube helm qemu || true
+          brew install minikube helm docker colima || true
           minikube version
           helm version --short
-          qemu-system-aarch64 --version | head -1
+          colima version
 
       # ── 4: Python setup ──────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -80,18 +81,18 @@ jobs:
       - name: Install Python dependencies
         run: pip install --upgrade pip "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
-      # ── 5: Start minikube with qemu2 driver ─────────────────────────────────
-      # qemu2 is the correct macOS driver — no Docker daemon, no Colima needed.
-      # Uses 4 CPUs / 6 GB RAM — safe on an M1 GitHub runner (7 GB available).
-      - name: Start minikube (qemu2)
+      # ── 5: Start minikube with colima (docker) driver ────────────────────────
+      # Mirrors the exact same stable local colima configuration.
+      # Uses 3 CPUs / 5 GB RAM — safe on an M1 GitHub runner (7 GB available).
+      - name: Start minikube (docker/colima)
         run: |
+          colima start --cpu 3 --memory 5 --arch aarch64 --vm-type=vz --vz-rosetta
           minikube start \
-            --driver=qemu2 \
+            --driver=docker \
             --cpus=3 \
             --memory=4096 \
             --kubernetes-version=v1.29.3 \
-            --wait=all \
-            --alsologtostderr || (minikube logs && exit 1)
+            --wait=all
           kubectl cluster-info
 
       # ── 6: Install KubeRay Operator ─────────────────────────────────────────
