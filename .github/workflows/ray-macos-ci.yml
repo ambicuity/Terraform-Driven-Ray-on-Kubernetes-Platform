@@ -60,13 +60,14 @@ jobs:
             /opt/homebrew/Cellar/helm
             /opt/homebrew/Cellar/docker
             /opt/homebrew/Cellar/colima
+            /opt/homebrew/Cellar/qemu
           key: homebrew-macos14-${{ hashFiles('.github/workflows/ray-macos-ci.yml') }}
           restore-keys: homebrew-macos14-
 
       # ── 3: Install CLI tools via Homebrew ───────────────────────────────────
-      - name: Install minikube, helm, docker, colima
+      - name: Install minikube, helm, docker, colima, qemu
         run: |
-          brew install minikube helm docker colima || true
+          brew install minikube helm docker colima qemu || true
           minikube version
           helm version --short
           colima version
