@@ -3,7 +3,6 @@ resource "aws_s3_bucket" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = "${var.cluster_name}-velero-backups-${var.region}"
 
-  # checkov:skip=CKV_AWS_145: KMS encryption incurs per-request costs; AES256 is sufficient for FinOps
   # checkov:skip=CKV_AWS_144: Cross-region replication doubles storage costs
   # checkov:skip=CKV_AWS_18: Access logging creates unnecessary storage costs for automated backups
   # checkov:skip=CKV_AWS_300: Velero manages the lifecycle and retention of backups natively
@@ -24,13 +23,27 @@ resource "aws_s3_bucket_versioning" "velero_backups" {
   }
 }
 
+resource "aws_kms_key" "velero" {
+  count                   = var.enable_velero ? 1 : 0
+  description             = "KMS key for Velero S3 bucket encryption"
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
+}
+
+resource "aws_kms_alias" "velero" {
+  count         = var.enable_velero ? 1 : 0
+  name          = "alias/velero-${var.cluster_name}"
+  target_key_id = aws_kms_key.velero[0].key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = aws_s3_bucket.velero_backups[0].id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.velero[0].arn
+      sse_algorithm     = "aws:kms"
     }
   }
 }
@@ -123,13 +136,31 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
 
 # Velero Helm Release
 resource "helm_release" "velero" {
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
   count            = var.enable_velero ? 1 : 0
   name             = "velero"
   repository       = "https://vmware-tanzu.github.io/helm-charts"
   chart            = "velero"
   namespace        = "velero"
+<<<<<<< HEAD
   create_namespace = true
   version          = "5.1.3"
+=======
+  count      = var.enable_velero ? 1 : 0
+  name       = "velero"
+  repository = "https://vmware-tanzu.github.io/helm-charts"
+  chart      = "velero"
+  namespace  = "velero"
+  create_namespace = true
+  version    = "5.1.3"
+>>>>>>> 355bad5 (feat(ha): Implement Phase 3 Disaster Recovery and Multi-AZ Autoscaling)
+=======
+  create_namespace = true
+  version          = "5.1.3"
+>>>>>>> fc85a72 (fix(ci): Format terraform and append changelog entry for PR #17)
 
   values = [
     <<-EOT
