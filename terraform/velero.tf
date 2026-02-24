@@ -23,13 +23,27 @@ resource "aws_s3_bucket_versioning" "velero_backups" {
   }
 }
 
+resource "aws_kms_key" "velero" {
+  count                   = var.enable_velero ? 1 : 0
+  description             = "KMS key for Velero S3 bucket encryption"
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
+}
+
+resource "aws_kms_alias" "velero" {
+  count         = var.enable_velero ? 1 : 0
+  name          = "alias/velero-${var.cluster_name}"
+  target_key_id = aws_kms_key.velero[0].key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = aws_s3_bucket.velero_backups[0].id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.velero[0].arn
+      sse_algorithm     = "aws:kms"
     }
   }
 }

@@ -121,6 +121,7 @@ cpuWorkers:
   # Problem #2 Fix: Override injected GCS init container to avoid OOM
   initContainers:
     - name: wait-gcs-ready
+      image: python:3.10-slim
       # Fallback to pure bash/python to avoid 180MB memory footprint of "ray health-check"
       command: ["/bin/sh", "-c"]
       args:
@@ -222,6 +223,7 @@ gpuWorkers:
   # Problem #2 Fix: Override injected GCS init container to avoid OOM
   initContainers:
     - name: wait-gcs-ready
+      image: python:3.10-slim
       # Fallback to pure bash/python to avoid 180MB memory footprint of "ray health-check"
       command: ["/bin/sh", "-c"]
       args:

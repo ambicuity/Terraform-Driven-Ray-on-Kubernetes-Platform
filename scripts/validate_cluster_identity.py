@@ -1,28 +1,42 @@
+#!/usr/bin/env python3
+# MIT License
+# Copyright (c) 2026 ambicuity
+
 import sys
 import hashlib
 import json
 import os
-from kubernetes import client, config
-from kubernetes.client.rest import ApiException
+import subprocess
+
+def run_kubectl_json(cmd_args):
+    """Utility to run kubectl and return parsed JSON stdout."""
+    result = subprocess.run(
+        ["kubectl"] + cmd_args + ["-o", "json"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+    return json.loads(result.stdout)
 
 def get_cluster_fingerprint(context_name=None):
     """Generates a stable fingerprint for the current Kubernetes cluster."""
     try:
-        if context_name:
-            config.load_kube_config(context=context_name)
-        else:
-            config.load_kube_config()
-            
-        v1 = client.CoreV1Api()
+        # Check kubectl availability
+        subprocess.run(["kubectl", "version", "--client"], capture_output=True, check=True)
         
-        # 1. Verify reachability
-        version_info = client.VersionApi().get_code()
+        # 1. Verify reachability and get version
+        version_result = subprocess.run(["kubectl", "version", "-o", "json"], capture_output=True, text=True)
+        if version_result.returncode != 0:
+            raise RuntimeError(version_result.stderr.strip())
+        version_info = json.loads(version_result.stdout)
+        server_version = version_info.get("serverVersion", {}).get("gitVersion", "unknown")
         
         # 2. Extract cluster UID from the kube-system namespace
-        kube_system = v1.read_namespace("kube-system")
-        cluster_uid = kube_system.metadata.uid
+        kube_system = run_kubectl_json(["get", "namespace", "kube-system"])
+        cluster_uid = kube_system.get("metadata", {}).get("uid")
         
-        # 3. Get API endpoint context (approximate via client.configuration)
+        # 3. Get API endpoint context
         cluster_name = "active-context"
         
         fingerprint = hashlib.sha256(f"{cluster_uid}".encode()).hexdigest()
@@ -32,13 +46,11 @@ def get_cluster_fingerprint(context_name=None):
             "cluster_name": cluster_name,
             "cluster_uid": cluster_uid,
             "fingerprint": fingerprint,
-            "version": version_info.git_version
+            "version": server_version
         }
         
-    except config.ConfigException as e:
-        return {"status": "error", "message": f"Kubeconfig error: {e}"}
-    except ApiException as e:
-        return {"status": "error", "message": f"K8s API error: Server might be defunct. Details: {e}"}
+    except FileNotFoundError:
+        return {"status": "error", "message": "kubectl not found in PATH."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

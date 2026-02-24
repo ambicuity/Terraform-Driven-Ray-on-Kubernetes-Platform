@@ -129,6 +129,8 @@ For a complete runnable example, see the [terraform/examples/complete](terraform
 | `gpu_node_instance_types` | Instance types for GPU nodes | `list(string)` | `["g4dn.xlarge"]` | no |
 | `gpu_node_min_size` | Minimum size of GPU node group | `number` | `0` | no |
 | `gpu_node_max_size` | Maximum size of GPU node group | `number` | `5` | no |
+| `enable_oidc_thumbprint_management` | Whether Terraform should manage the OIDC thumbprint. Set to false to prevent perpetual drift. | `bool` | `false` | no |
+| `enable_velero` | Enable Velero backup infrastructure (S3 bucket, KMS key, IRSA) | `bool` | `false` | no |
 
 *(For a full list of inputs, see [variables.tf](terraform/variables.tf))*
 

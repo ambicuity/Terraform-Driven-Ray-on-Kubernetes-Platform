@@ -1,9 +1,13 @@
+#!/usr/bin/env python3
+# MIT License
+# Copyright (c) 2026 ambicuity
+
 import ray
 import time
 import requests
 import threading
 import sys
-from kubernetes import client, config
+import subprocess
 
 def submit_traffic_to_serve():
     """Simulates a continuous stream of traffic to a Ray Serve endpoint."""
@@ -28,16 +32,17 @@ def submit_traffic_to_serve():
 
 def kill_head_pod():
     try:
-        config.load_kube_config()
-        v1 = client.CoreV1Api()
-        pods = v1.list_pod_for_all_namespaces(label_selector="ray.io/node-type=head")
-        if pods.items:
-            pod = pods.items[0]
-            print(f"🧨 Terminating Ray Head Pod: {pod.metadata.name}")
-            v1.delete_namespaced_pod(
-                name=pod.metadata.name,
-                namespace=pod.metadata.namespace,
-                body=client.V1DeleteOptions(grace_period_seconds=0)
+        # Get head pod name using kubectl
+        result = subprocess.run(
+            ["kubectl", "get", "pods", "-n", "ray-system", "-l", "ray.io/node-type=head", "-o", "jsonpath={.items[0].metadata.name}"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            pod_name = result.stdout.strip()
+            print(f"🧨 Terminating Ray Head Pod: {pod_name}")
+            subprocess.run(
+                ["kubectl", "delete", "pod", pod_name, "-n", "ray-system", "--grace-period=0", "--force"],
+                capture_output=True, check=True
             )
             return True
     except Exception as e:
