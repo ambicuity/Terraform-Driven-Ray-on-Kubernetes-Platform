@@ -87,8 +87,8 @@ jobs:
         run: |
           minikube start \
             --driver=qemu2 \
-            --cpus=4 \
-            --memory=5120 \
+            --cpus=3 \
+            --memory=4096 \
             --kubernetes-version=v1.29.3 \
             --wait=all \
             --alsologtostderr 2>&1 | tail -20
