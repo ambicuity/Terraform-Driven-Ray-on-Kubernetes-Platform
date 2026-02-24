@@ -266,10 +266,9 @@ jobs:
           kubectl exec -n ${{ env.RAY_NAMESPACE }} "$HEAD_POD" -- python3 -c "
           import ray, sys
           ray.init(address='auto')
-          nodes = ray.nodes()
-          total = sum(n.get('ObjectStoreMemory', 0) for n in nodes)
-          print(f'Total object store memory: {total / 1e9:.2f} GB')
-          assert total > 0, 'Object store memory is zero!'
+          store = ray.cluster_resources().get('object_store_memory', 0)
+          print(f'Total object store memory: {store / 1e9:.2f} GB')
+          assert store > 0, 'Object store memory is zero!'
           print('VAL-04: PASS')
           "
           echo "✅ VAL-04 passed"
