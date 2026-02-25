@@ -34,25 +34,36 @@ jobs:
           pip install -r requirements.txt
           pip install kubernetes ray
 
-      # Connect to EKS (assuming credentials provided via OIDC/AWS IAM in real environment)
-      # For demonstration/CI limits, this step would establish the kubeconfig
+      # Configure AWS credentials via OIDC when CHAOS_RUNNER_ROLE_ARN secret is set.
+      # In order to run against a live EKS cluster, set the CHAOS_RUNNER_ROLE_ARN
+      # repository secret to the IAM role ARN that has EKS describe/access permissions.
       - name: Configure AWS Credentials
+        if: ${{ secrets.CHAOS_RUNNER_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/chaos-runner-role
+          role-to-assume: ${{ secrets.CHAOS_RUNNER_ROLE_ARN }}
           aws-region: us-west-2
-        continue-on-error: true # Bypassed in raw CI without live AWS keys
 
-      - name: Generate Kubeconfig
+      - name: Generate Kubeconfig (EKS)
+        if: ${{ secrets.CHAOS_RUNNER_ROLE_ARN != '' }}
         run: |
-          # aws eks update-kubeconfig --region us-west-2 --name ray-production-cluster
-          echo "Simulated Kubeconfig hook to connect Python client to EKS API."
-        continue-on-error: true
+          aws eks update-kubeconfig --region us-west-2 --name ray-production-cluster
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "ray[default]>=2.9.0" "kubernetes>=28.1.0"
 
       - name: Execute Chaos Engineering Workload
-        run: |
-          echo "Executing script: workloads/chaos_test.py"
-          echo "This script will spawn 50 concurrent Ray tasks, wait 5 seconds, and then natively connect to the Kube API to force-delete the active Worker Pod running the tasks."
-          python workloads/chaos_test.py
+        run: python workloads/chaos_test.py
         env:
-          RAY_ADDRESS: "auto" # Will target locally spawned cluster if EKS isn't linked
+          # When no EKS cluster is configured, Ray initialises locally and the
+          # Kubernetes pod-deletion path is skipped gracefully by chaos_test.py.
+          RAY_ADDRESS: "auto"
