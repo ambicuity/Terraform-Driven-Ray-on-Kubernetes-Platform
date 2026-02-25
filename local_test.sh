@@ -27,7 +27,7 @@ header()  { echo -e "\n${BOLD}${BLUE}══════════════�
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PROFILE="ray-local"
-MEMORY="4096"          # MB — stable on Colima 7 GB VZ VM (leaves 3 GB OS headroom)
+MEMORY="6144"          # MB — increased to 6GB to prevent Ray dashboard OOM-kills
 CPUS="4"
 KUBERNETES_VERSION="v1.29.3"
 KUBERAY_OPERATOR_VERSION="1.1.1"
@@ -59,6 +59,14 @@ install_brew_pkg() {
     success "$pkg installed."
   fi
 }
+
+# Determine native architecture to pull the optimal Ray Docker image
+if [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
+  RAY_IMAGE="rayproject/ray:2.9.3-py310-aarch64"
+else
+  RAY_IMAGE="rayproject/ray:2.9.3-py310"
+fi
+info "Host architecture is $(uname -m). Selected Ray Image: $RAY_IMAGE"
 
 install_brew_pkg minikube minikube
 install_brew_pkg helm     helm
@@ -159,11 +167,24 @@ spec:
     rayStartParams:
       dashboard-host: "0.0.0.0"
       num-cpus: "1"
+      object-store-memory: "536870912"
     template:
       spec:
         containers:
           - name: ray-head
-            image: rayproject/ray:2.9.3-py310
+            image: $RAY_IMAGE
+            livenessProbe:
+              initialDelaySeconds: 30
+              timeoutSeconds: 5
+              periodSeconds: 10
+              exec:
+                command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
+            readinessProbe:
+              initialDelaySeconds: 30
+              timeoutSeconds: 5
+              periodSeconds: 10
+              exec:
+                command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
             resources:
               requests:
                 cpu: "500m"
@@ -182,11 +203,24 @@ spec:
       maxReplicas: 2
       rayStartParams:
         num-cpus: "1"
+        object-store-memory: "536870912"
       template:
         spec:
           containers:
             - name: ray-worker
-              image: rayproject/ray:2.9.3
+              image: $RAY_IMAGE
+              livenessProbe:
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+                periodSeconds: 10
+                exec:
+                  command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success"]
+              readinessProbe:
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+                periodSeconds: 10
+                exec:
+                  command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success"]
               resources:
                 requests:
                   cpu: "500m"
@@ -295,73 +329,54 @@ run_validation "Ray Dashboard HTTP (8265) reachable" bash -c "
   exit \$RESULT
 "
 
-# ── Python Ray validations via Jobs REST API ─────────────────────────────────
-# KubeRay v1.1.1 does NOT run a raylet on the head pod — only on workers.
-# kubectl exec + ray.init() from the head pod has no local raylet socket to
-# register with. The correct driver surface is the Ray Jobs REST API (port 8265).
-# We port-forward once, submit jobs via curl, poll until they finish, then teardown.
-
-# Start a persistent port-forward for all Python job submissions.
-kubectl port-forward -n "$RAY_CLUSTER_NAMESPACE" "pod/$HEAD_POD" 48265:8265 \
-  &>/dev/null &
-JOBS_PF_PID=$!
-info "Started Jobs API port-forward (pid=$JOBS_PF_PID) — waiting for dashboard ready…"
-sleep 6
-
-# Helper: submit a Ray job, poll until success/failure, return exit code.
-submit_ray_job() {
-  local name="$1"
-  local script="$2"
-  # Submit
-  SUBMIT=$(curl -sf --max-time 10 \
-    -X POST http://127.0.0.1:48265/api/jobs/ \
-    -H 'Content-Type: application/json' \
-    -d "{\"entrypoint\": \"python3 -c '$script'\", \"runtime_env\": {}}" 2>&1)
-  JOB_ID=$(echo "$SUBMIT" | python3 -c \
-    "import sys,json; d=json.load(sys.stdin); print(d.get('job_id',''))" 2>/dev/null)
-  if [[ -z "$JOB_ID" ]]; then
-    warn "Could not submit job '$name': $SUBMIT"
-    return 1
-  fi
-  info "  Submitted job: $JOB_ID"
-  # Poll until terminal state
-  for _ in {1..30}; do
-    STATUS=$(curl -sf --max-time 5 \
-      "http://127.0.0.1:48265/api/jobs/$JOB_ID" 2>/dev/null \
-      | python3 -c \
-      "import sys,json; d=json.load(sys.stdin); print(d.get('status','UNKNOWN'))" \
-      2>/dev/null)
-    info "  Job $JOB_ID status: $STATUS"
-    [[ "$STATUS" == "SUCCEEDED" ]] && return 0
-    [[ "$STATUS" == "FAILED" ]]    && return 1
-    sleep 5
-  done
-  warn "  Job $JOB_ID timed out polling"
-  return 1
-}
+# ── Python Ray validations via kubectl exec ──────────────────────────────────
+# We use 'kubectl exec' directly into the head pod to execute Python scripts
+# that connect to the locally running GCS instance at 127.0.0.1:6379 natively.
 
 # ── 6f: Ray remote task smoke test ───────────────────────────────────────────
-run_validation "Ray remote task execution (Jobs API)" \
-  submit_ray_job "smoke" \
-  "import ray; ray.init(); \\n@ray.remote\\ndef hello(): return \\\"ray-ok\\\"\\nprint(ray.get(hello.remote()))"
+run_validation "Ray remote task execution (python client)" bash -c "
+  kubectl exec -n $RAY_CLUSTER_NAMESPACE $HEAD_POD -- python3 -c '
+import ray
+ray.init(address=\"auto\", _node_ip_address=__import__(\"socket\").gethostbyname(__import__(\"socket\").gethostname()))
+@ray.remote
+def hello(): return \"ray-ok\"
+assert ray.get(hello.remote()) == \"ray-ok\", \"Validation failed\"
+'
+"
 
 # ── 6g: Object store memory > 0 ──────────────────────────────────────────────
-run_validation "Object store memory > 0 (Jobs API)" \
-  submit_ray_job "objstore" \
-  "import ray; ray.init(); nodes=ray.nodes(); m=sum(n.get('ObjectStoreMemory',0) for n in nodes); print(f'{m/1e9:.2f} GB'); exit(0 if m>0 else 1)"
+run_validation "Object store memory > 0 (python client)" bash -c "
+  kubectl exec -n $RAY_CLUSTER_NAMESPACE $HEAD_POD -- python3 -c '
+import ray
+ray.init(address=\"auto\", _node_ip_address=__import__(\"socket\").gethostbyname(__import__(\"socket\").gethostname()))
+m=ray.cluster_resources().get(\"object_store_memory\",0)
+print(f\"{m/1e9:.2f} GB\")
+assert m > 0, \"Object store memory is zero\"
+'
+"
 
 # ── 6h: Node/raylet registration ─────────────────────────────────────────────
-run_validation "Worker raylets registered in cluster (Jobs API)" \
-  submit_ray_job "nodes" \
-  "import ray; ray.init(); alive=[n for n in ray.nodes() if n['Alive']]; print(f'Alive nodes: {len(alive)}'); exit(0 if len(alive)>=2 else 1)"
+run_validation "Worker raylets registered in cluster (python client)" bash -c "
+  kubectl exec -n $RAY_CLUSTER_NAMESPACE $HEAD_POD -- python3 -c '
+import ray
+ray.init(address=\"auto\", _node_ip_address=__import__(\"socket\").gethostbyname(__import__(\"socket\").gethostname()))
+alive=[n for n in ray.nodes() if n.get(\"Alive\")]
+print(f\"Alive nodes: {len(alive)}\")
+assert len(alive) >= 2, \"Cluster does not have 2 nodes\"
+'
+"
 
 # ── 6k: Parallel fan-out ─────────────────────────────────────────────────────
-run_validation "Parallel Ray task fan-out (Jobs API)" \
-  submit_ray_job "fanout" \
-  "import ray; ray.init()\\n@ray.remote\\ndef f(n): return n*n\\nprint(ray.get([f.remote(i) for i in range(10)]))"
-
-# Tear down Jobs API port-forward
-kill "$JOBS_PF_PID" 2>/dev/null || true
+run_validation "Parallel Ray task fan-out (python client)" bash -c "
+  kubectl exec -n $RAY_CLUSTER_NAMESPACE $HEAD_POD -- python3 -c '
+import ray
+ray.init(address=\"auto\", _node_ip_address=__import__(\"socket\").gethostbyname(__import__(\"socket\").gethostname()))
+@ray.remote
+def f(n): return n*n
+res=ray.get([f.remote(i) for i in range(10)])
+assert len(res) == 10, \"Parallel fan-out failed\"
+'
+"
 
 # NOTE: minikube runs 1 CoreDNS replica by default; this is NOT a failure.
 # The Terraform velero.tf / node_pools.tf fixes scale CoreDNS to 4 in production EKS.

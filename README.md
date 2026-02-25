@@ -83,8 +83,14 @@ module "ray_eks_cluster" {
 
 ## Operational Excellence
 
-### Chaos Engineering Validated
-This platform is validated by a custom Chaos Engineering suite (`ha_resilience_test.py`) that actively terminates the Ray Head Pod during live inference traffic streams, guaranteeing the cluster maintains its SLA and successfully measuring the Mean Time To Recovery (MTTR). "Production-grade" is verified mathematically.
+### Real-World Resilience Testing
+This platform is not just theoretically robust—it includes an executable validation suite to empirically prove its mitigations against the legendary failure modes on your own live EKS cluster.
+
+See the [Validation Runbook](validation/README.md) to execute the following test scripts:
+- **MTTR & HA Validation:** `workloads/ha_resilience_test.py` validates the preStop hook, proving 0% error rate during Head node failure.
+- **200-Node Scale Event:** `validation/test_scale_event.sh` triggers a massive autoscaling event and monitors the CoreDNS scaling fix.
+- **GPU Pod Density Fix:** `validation/test_gpu_density.sh` queries the AWS CNI dynamically to prove `g4dn.xlarge` instances have a capacity of 110+ pods via Prefix Delegation.
+- **Memory Stress Object Spilling:** `validation/test_memory_spill.py` forces object store exhaustion to prove safe spillage to the `/tmp/ray` memory-backed `emptyDir` without triggering Kubelet `DiskPressure`.
 
 ### Automated Native Backups
 Full Velero integration provides pod volume backups and Kubernetes state snapshots. This includes native KMS encryption and IAM Roles for Service Accounts (IRSA) injection perfectly scoped with `kms:Decrypt` and `kms:GenerateDataKey`.
