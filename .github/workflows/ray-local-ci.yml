@@ -72,20 +72,32 @@ jobs:
             echo "✅ OPA policy files present"
           fi
 
-      - name: Check validation scripts are executable-ready
+      - name: Check validation and workload scripts have shebangs
         run: |
-          for f in validation/*.sh; do
-            head -1 "$f" | grep -q '^#!' || echo "⚠️  No shebang in $f"
-            echo "✅ $f — shebang OK"
-          done
+          # Check Python files in validation/ for shebangs
+          while IFS= read -r -d '' f; do
+            if head -1 "$f" | grep -q '^#!'; then
+              echo "✅ $f — shebang OK"
+            else
+              echo "⚠️  No shebang in $f"
+            fi
+          done < <(find validation/ workloads/ -name '*.py' -print0 2>/dev/null)
+          # Check shell scripts for shebangs
+          while IFS= read -r -d '' f; do
+            if head -1 "$f" | grep -q '^#!'; then
+              echo "✅ $f — shebang OK"
+            else
+              echo "⚠️  No shebang in $f"
+            fi
+          done < <(find validation/ -name '*.sh' -print0 2>/dev/null)
 
-      - name: Lint Python validation scripts
+      - name: Lint Python validation and script files
         run: |
           pip install --quiet flake8
-          flake8 validation/ scripts/ \
+          flake8 validation/ scripts/ workloads/ \
             --max-line-length=120 \
-            --ignore=E501,W503 \
-            --count || true
+            --extend-ignore=E203,W503 \
+            --count
 
   # ── Job 2: Full minikube + KubeRay + Ray cluster validation ─────────────────
   ray-cluster-validation:

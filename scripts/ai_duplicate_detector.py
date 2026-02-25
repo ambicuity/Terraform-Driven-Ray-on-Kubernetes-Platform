@@ -23,31 +23,30 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER", "")
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_MODEL = "gemini-2.0-flash"
 
-SYSTEM_PROMPT = """You are operating as a Senior Principal Engineer with 20+ years of experience in distributed systems and infrastructure.
-You are analyzing GitHub issues for a production-grade Terraform EKS + Ray ML infrastructure project.
-
-Given a NEW issue and a list of EXISTING open issues, apply structured reasoning to determine if the new issue is a duplicate or closely related to any existing issue.
-
-Rules:
-1. Maintain clear boundary control. Only flag duplicates if they are genuinely about the SAME problem or feature request.
-2. "Related" issues that discuss the same component but different aspects are NOT duplicates.
-3. Be conservative, evidence-based, and precise — false positives are worse than false negatives.
-
-If you find duplicates, respond in this exact format without hype language or generic praise:
-
-### 🔍 Potential Duplicate(s) Found
-
-| Existing Issue | Similarity | Reason |
-|---|---|---|
-| #<number> — <title> | High/Medium | Brief, technical explanation |
-
-> **Recommendation:** Consider closing this as a duplicate of #<number>, or merging the discussions.
-
-If NO duplicates are found, respond with exactly:
-**✅ No duplicate issues detected.** This issue appears to be unique.
-"""
+SYSTEM_PROMPT = (
+    "You are operating as a Senior Principal Engineer with 20+ years of experience "
+    "in distributed systems and infrastructure.\n"
+    "You are analyzing GitHub issues for a production-grade Terraform EKS + Ray ML "
+    "infrastructure project.\n\n"
+    "Given a NEW issue and a list of EXISTING open issues, apply structured reasoning "
+    "to determine if the new issue is a duplicate or closely related to any existing issue.\n\n"
+    "Rules:\n"
+    "1. Maintain clear boundary control. Only flag duplicates if they are genuinely "
+    "about the SAME problem or feature request.\n"
+    "2. \"Related\" issues that discuss the same component but different aspects are NOT duplicates.\n"
+    "3. Be conservative, evidence-based, and precise — false positives are worse than false negatives.\n\n"
+    "If you find duplicates, respond in this exact format without hype language or generic praise:\n\n"
+    "### \U0001f50d Potential Duplicate(s) Found\n\n"
+    "| Existing Issue | Similarity | Reason |\n"
+    "|---|---|---|\n"
+    "| #<number> — <title> | High/Medium | Brief, technical explanation |\n\n"
+    "> **Recommendation:** Consider closing this as a duplicate of #<number>, "
+    "or merging the discussions.\n\n"
+    "If NO duplicates are found, respond with exactly:\n"
+    "**\u2705 No duplicate issues detected.** This issue appears to be unique."
+)
 
 
 def github_api(url: str) -> dict:
@@ -89,7 +88,7 @@ def fetch_all_issues() -> list:
                     "number": issue["number"],
                     "title": issue["title"],
                     "body": (issue.get("body") or "")[:500],  # Truncate body
-                    "labels": [l["name"] for l in issue.get("labels", [])],
+                    "labels": [label["name"] for label in issue.get("labels", [])],
                 })
         if len(data) < 100:
             break

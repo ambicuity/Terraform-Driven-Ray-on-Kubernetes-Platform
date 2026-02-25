@@ -3,10 +3,16 @@ name: Python Lint — Pylint, Flake8, Mypy
 on:
   push:
     branches: [main]
-    paths: ['workloads/**/*.py', 'scripts/**/*.py']
+    paths:
+      - 'workloads/**/*.py'
+      - 'scripts/**/*.py'
+      - 'validation/**/*.py'
   pull_request:
     branches: [main]
-    paths: ['workloads/**/*.py', 'scripts/**/*.py']
+    paths:
+      - 'workloads/**/*.py'
+      - 'scripts/**/*.py'
+      - 'validation/**/*.py'
 
 jobs:
   lint:
@@ -28,23 +34,22 @@ jobs:
 
       - name: Run Flake8
         run: |
-          flake8 workloads/ scripts/ \
+          flake8 workloads/ scripts/ validation/ \
             --max-line-length=120 \
             --extend-ignore=E203,W503 \
             --statistics \
             --count
-        continue-on-error: true
 
       - name: Run Pylint
         run: |
-          pylint workloads/ scripts/ \
+          pylint workloads/ scripts/ validation/ \
             --disable=C0114,C0115,C0116,R0903 \
             --max-line-length=120 \
-            --fail-under=7.0 || true
+            --fail-under=7.0
 
       - name: Run Mypy
         run: |
-          mypy workloads/ scripts/ \
+          mypy workloads/ scripts/ validation/ \
             --ignore-missing-imports \
             --no-strict-optional \
-            --allow-untyped-defs || true
+            --allow-untyped-defs

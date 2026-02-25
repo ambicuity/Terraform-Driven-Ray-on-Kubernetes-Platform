@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           
       - name: Run Python syntax check (No cluster available in CI)
         run: python -m py_compile scripts/validate_cluster_identity.py
