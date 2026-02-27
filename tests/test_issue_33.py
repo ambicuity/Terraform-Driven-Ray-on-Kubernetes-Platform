@@ -1,4 +1,4 @@
-"""Placeholder tests for issue #33."""
+"""Test file to verify issue 33."""
 import unittest
 
 
