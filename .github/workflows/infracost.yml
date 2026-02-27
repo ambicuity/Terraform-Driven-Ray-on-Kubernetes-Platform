@@ -15,7 +15,7 @@ jobs:
       pull-requests: write  # post PR comment
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Infracost
         uses: infracost/actions/setup@v3
@@ -24,7 +24,7 @@ jobs:
 
       # Checkout the base branch to get the baseline cost
       - name: Checkout base branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           path: base-branch
