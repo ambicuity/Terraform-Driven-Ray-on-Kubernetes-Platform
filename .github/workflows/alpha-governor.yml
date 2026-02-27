@@ -1,0 +1,40 @@
+name: Agent Alpha — Governance Cycle
+
+# Phase 4: Governance — Triggered every 5 successful merges via a repository_dispatch
+# event ('governance-cycle') fired by Agent Beta, OR manually via workflow_dispatch.
+# Alpha synthesises CHANGELOG.md, updates ROADMAP.md milestones, creates a SemVer
+# git tag, and deletes merged ai-fix/ branches.
+
+on:
+  repository_dispatch:
+    types: [governance-cycle]
+  # Allow manual trigger for testing the governance cycle
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  govern:
+    name: Alpha — Governance Cycle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history needed for tag creation
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Agent Alpha (Project Lead)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/alpha_governor.py
