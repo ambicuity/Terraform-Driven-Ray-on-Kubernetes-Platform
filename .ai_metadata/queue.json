@@ -1,16 +1,8 @@
 {
   "schema_version": "1.0",
   "queued": [],
-  "in_progress": {
-    "issue_number": 33,
-    "title": "feat: implement memory limits correctly for ray worker pods",
-    "priority": "high",
-    "brief": "This issue addresses the incorrect application of memory limits for Ray worker pods, leading to Out-Of-Memory (OOM) failures despite large memory requests. Currently, worker pods are deployed without explicit memory limits, causing them to be killed by the kernel when exceeding their allocated resources. The proposed fix involves correctly implementing and applying these memory limits within the Ray worker pod deployment configuration.",
-    "branch": "ai-fix/33",
-    "url": "https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/issues/33",
-    "pr_number": 34
-  },
-  "merge_count": 0,
+  "in_progress": null,
+  "merge_count": 1,
   "last_governance_merge": 0,
   "_comment": "Managed by the Autonomous AI Agent Organization. DO NOT edit manually. See INTERNAL_LOG.md for audit trail."
 }
