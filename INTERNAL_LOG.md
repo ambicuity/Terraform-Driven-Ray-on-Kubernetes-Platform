@@ -84,3 +84,9 @@ SyntaxError: invalid syntax
 - **Action**: Approved and merged — merge_count=1
 - **State**: Merged
 - **Notes**: This issue addresses the incorrect application of memory limits for Ray worker pods, leading to Out-
+
+## Agent Gamma — 2026-02-27T18:30:11Z
+- **Issue/PR**: #35
+- **Action**: Triaged — priority:high; added to queue
+- **State**: Queued → awaiting Delta
+- **Notes**: Brief: The Node Termination Handler (NTH) currently uses `AmazonSQSFullAccess`, violating least privilege. This issue proposes 
