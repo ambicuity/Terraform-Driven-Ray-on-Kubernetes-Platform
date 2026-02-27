@@ -48,13 +48,26 @@ LOG_PATH = "INTERNAL_LOG.md"
 # Model selection — matched to each agent's workload:
 #   Pro  → Delta (code gen, up to 5 calls/issue) + Beta (security review)
 #   Flash → Gamma (high-frequency triage) + Alpha (text synthesis, every 5 merges)
-GEMINI_MODEL_PRO   = "gemini-2.5-flash"    # temporarily using flash to bypass quota limits
+GEMINI_MODEL_PRO   = "gemini-2.5-pro"    # reasoning-critical: code gen and security review
 GEMINI_MODEL_FLASH = "gemini-2.5-flash"  # fast, cost-efficient for triage / governance
 GEMINI_MODEL       = GEMINI_MODEL_PRO     # default for any agent that does not override
-_GEMINI_RETRY_DELAYS = [1, 2, 3]  # seconds (temporarily reduced for fast failing on 429)
+_GEMINI_RETRY_DELAYS = [2, 5, 10]  # seconds with backoff for 429 / 503
 
 # Files / path prefixes agents are NEVER allowed to write
 _PROTECTED_PATH_PREFIXES = (".github/workflows/",)
+
+# ---------------------------------------------------------------------------
+# Allowed top-level Python imports in generated code
+# Shared by Delta (code generation) and Beta (diff import scan).
+# Both agents import this constant from here — single source of truth.
+# ---------------------------------------------------------------------------
+ALLOWED_IMPORTS = frozenset([
+    "os", "sys", "re", "json", "time", "datetime", "subprocess", "pathlib",
+    "urllib", "http", "io", "base64", "hashlib", "threading", "typing",
+    "unittest", "collections", "itertools", "functools", "math", "logging",
+    "argparse", "textwrap", "shutil", "tempfile", "contextlib", "dataclasses",
+    "abc", "enum", "copy", "uuid", "random", "kubernetes", "yaml",
+])
 
 
 # ---------------------------------------------------------------------------
@@ -481,15 +494,17 @@ class GeminiClient:
         failure. All failures are logged with a reason so silent empty returns
         are traceable in the CI job log.
         """
+        # Choose thinking budget based on model tier:
+        #   Pro (code gen, security review): allow up to 8192 thinking tokens for
+        #     deeper reasoning — the latency trade-off is acceptable for these tasks.
+        #   Flash (triage, governance text synthesis): keep at 0 for speed.
+        thinking_budget = 8192 if self.model == GEMINI_MODEL_PRO else 0
         payload: dict = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": temperature,
                 "maxOutputTokens": max_tokens,
-                # Disable thinking for gemini-2.5+ models. Thinking is ON by
-                # default on 2.5/3 and causes latency spikes in fast agentic
-                # workflows. See: https://ai.google.dev/gemini-api/docs/troubleshooting
-                "thinkingConfig": {"thinkingBudget": 0},
+                "thinkingConfig": {"thinkingBudget": thinking_budget},
             },
         }
         if system_instruction:

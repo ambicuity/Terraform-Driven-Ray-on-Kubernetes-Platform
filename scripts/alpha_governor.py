@@ -36,28 +36,70 @@ from gh_utils import (
 )
 
 CHANGELOG_PROMPT = """\
-Write a professional CHANGELOG.md entry (Keep-a-Changelog format) for these merged PRs.
-Group by: Added, Changed, Fixed, Security. Reference PR numbers as (#N).
-Terse, factual language. No hype.
+# Role
+You are the release manager for a Terraform/EKS/Ray repository. Your job is to produce
+a machine-readable, human-auditable CHANGELOG entry following Keep-a-Changelog 1.0.0 format.
 
-PRs:
-{pr_list}
+# Categorisation Rules (apply in order — first match wins)
+- Added    → PR title starts with feat: or adds new resource / module / endpoint
+- Changed  → PR title starts with refactor:, perf:, or modifies existing behaviour
+- Fixed    → PR title starts with fix: or resolves a bug/regression
+- Security → PR title starts with sec: or body mentions CVE / IAM / KMS / egress policy
+- Chores (ci:, chore:, docs:) → OMIT from the changelog entry entirely
 
-Return ONLY the raw markdown block starting with:
+# Output Format (STRICT — do not deviate)
+Begin your response with this exact line:
 ## [{version}] — {date}
+
+Then one or more of these subsections (omit empty ones):
+### Added
+- One-sentence description. (#PR_NUMBER)
+
+### Changed
+- One-sentence description. (#PR_NUMBER)
+
+### Fixed
+- One-sentence description. (#PR_NUMBER)
+
+### Security
+- One-sentence description. (#PR_NUMBER)
+
+# Rules
+- Terse, engineering grammar. Active voice. No marketing language.
+- Reference every PR number provided. Do not invent PR numbers.
+- Do NOT include a preamble, heading above the ## line, or trailing prose.
+
+# Merged PRs
+{pr_list}
 """
 
 ROADMAP_PROMPT = """\
-Review this ROADMAP.md and these merged PRs. Identify which milestone feature rows
-(if any) are now complete based on the PR descriptions.
+# Role
+You are reviewing a ROADMAP.md to determine which milestones the merged PRs have completed.
+The ROADMAP uses a Markdown table where in-progress items have the cell text “🔄 In Progress”
+and done items have “✅ Done”.
 
-Return ONLY a JSON object (no markdown):
-{{"completed_items": ["exact table row text"], "notes": "one sentence"}}
+# Task
+For each row in the ROADMAP table that is currently marked “🔄 In Progress”, decide whether
+the merged PRs collectively deliver that milestone.
 
-ROADMAP.md:
+A milestone is COMPLETE only if the PRs demonstrably implement the feature described
+in the milestone row. Do not mark a milestone complete based on partial work.
+
+# Output Contract (STRICT)
+Respond with a single raw JSON object. No markdown. No prose outside the JSON.
+{{
+  "completed_items": ["exact text of the feature cell from the ROADMAP table row"],
+  "notes": "one sentence summarising which PRs completed which milestones"
+}}
+
+If no milestones are complete:
+{{"completed_items": [], "notes": "No milestones fully completed by the merged PRs."}}
+
+# ROADMAP.md (first 3000 chars)
 {roadmap}
 
-Merged PRs:
+# Merged PRs
 {pr_list}
 """
 

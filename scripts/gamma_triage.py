@@ -128,16 +128,27 @@ def detect_duplicates_semantic(issue: dict, closed_issues: list, gemini: GeminiC
         for c in candidates[:10]
     )
     prompt = (
-        "You are a senior engineer reviewing GitHub issues for a Terraform/EKS/Ray repository.\n"
-        "Determine if the NEW ISSUE is semantically the same as any EXISTING ISSUE below.\n"
-        "Two issues are duplicates if they describe the same underlying bug or request,\n"
-        "even if worded completely differently.\n\n"
+        "You are a triage engineer for a production Terraform/EKS/Ray repository that deploys\n"
+        "GPU-enabled Ray ML clusters on AWS EKS using Terraform, Helm, and KubeRay.\n\n"
+        "TASK: Determine whether the NEW ISSUE describes the same root cause or feature need as\n"
+        "any of the EXISTING ISSUES listed below.\n\n"
+        "DUPLICATION CRITERIA — an issue is a duplicate ONLY if:\n"
+        "  1. It reports the same bug in the same component (e.g., both describe Ray worker OOM in\n"
+        "     node_pools.tf), OR\n"
+        "  2. It requests the exact same feature change to the same file or subsystem.\n"
+        "Issues that share a component but describe different failure modes are NOT duplicates.\n\n"
+        "EXAMPLES:\n"
+        "  DUPLICATE: 'EKS node group fails to scale' vs 'Cluster Autoscaler does not add nodes'\n"
+        "    — both describe the same autoscaling failure in the same component.\n"
+        "  NOT DUPLICATE: 'Ray worker OOM on GPU node' vs 'EKS node group fails to scale'\n"
+        "    — different failure modes on different components.\n\n"
         f"NEW ISSUE:\nTitle: {issue.get('title', '')}\n"
         f"Body: {(issue.get('body') or '')[:500]}\n\n"
-        f"EXISTING ISSUES:\n{candidates_summary}\n\n"
-        "Respond ONLY with a JSON array of issue numbers that are semantic duplicates.\n"
-        "Example: [12, 34] or [] if none.\n"
-        "Do not include any other text."
+        f"EXISTING ISSUES (up to 20, title + first 200 chars of body):\n{candidates_summary}\n\n"
+        "OUTPUT CONTRACT:\n"
+        "  Respond with a raw JSON array of integer issue numbers that are confirmed duplicates.\n"
+        "  Examples: [12, 34]  or  []\n"
+        "  Do NOT include any text, explanation, or markdown outside the JSON array."
     )
     raw = gemini.generate(prompt, temperature=0.1, max_tokens=128).strip()
     try:
@@ -195,8 +206,11 @@ def main() -> None:
     print(f"[Gamma] Issue: {title}")
 
     # --- Semantic duplicate detection (Gemini, not word overlap) ---
-    closed = gh.list_issues(state="closed", per_page=10)
-    duplicates = detect_duplicates_semantic(issue, closed, gemini)
+    # Check both open and closed issues to catch concurrent submissions.
+    closed = gh.list_issues(state="closed", per_page=20)
+    open_issues = gh.list_issues(state="open", per_page=20)
+    candidates = [i for i in (closed + open_issues) if str(i.get("number")) != str(issue_number)]
+    duplicates = detect_duplicates_semantic(issue, candidates, gemini)
     if duplicates:
         matches_md = "\n".join(
             f"- [#{d['number']} — {d['title']}]({d['url']})" for d in duplicates
@@ -244,9 +258,18 @@ def main() -> None:
 
     # Generate Technical Brief
     brief_prompt = (
-        "Write a 2-3 sentence Technical Brief for the following GitHub issue. "
-        "Be concise and engineering-focused. No bullets.\n\n"
-        f"Title: {title}\nBody:\n{body[:2000]}"
+        "You are the triage lead for a Terraform/EKS/Ray repository.\n"
+        "Write a Technical Brief of exactly 2-3 sentences for the issue below.\n\n"
+        "The brief MUST:\n"
+        "  1. Name the specific component affected (e.g., 'the KubeRay Helm chart', "
+        "'node_pools.tf', 'the OPA deny policy for egress', 'gamma_triage.py').\n"
+        "  2. State the failure mode or change request in concrete terms\n"
+        "     (e.g., 'Ray workers are evicted when GPU memory exceeds the cgroup limit set on\n"
+        "     the node group', not 'there is a memory problem').\n"
+        "  3. State the expected correct behaviour or desired end-state.\n\n"
+        "FORMAT: Plain prose, no bullets, no headers, no markdown.\n\n"
+        f"Issue Title: {title}\n"
+        f"Issue Body:\n{body[:2000]}"
     )
     brief = gemini.generate(brief_prompt).strip() or title
 

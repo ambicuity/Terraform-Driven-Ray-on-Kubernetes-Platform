@@ -25,6 +25,7 @@ from gh_utils import (
     GeminiClient,
     GithubClient,
     GEMINI_MODEL_PRO,
+    ALLOWED_IMPORTS,
     require_env,
 )
 import re
@@ -32,43 +33,73 @@ import re
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-ALLOWED_IMPORTS = frozenset([
-    "os", "sys", "re", "json", "time", "datetime", "subprocess", "pathlib",
-    "urllib", "http", "io", "base64", "hashlib", "threading", "typing",
-    "unittest", "collections", "itertools", "functools", "math", "logging",
-    "argparse", "textwrap", "shutil", "tempfile", "contextlib", "dataclasses",
-    "abc", "enum", "copy", "uuid", "random", "killing", "kubernetes", "yaml",
-])
+# ALLOWED_IMPORTS imported from gh_utils — see that module for the authoritative list.
 
 REVIEW_PROMPT = """\
-You are Agent Beta, the Core Maintainer and Gatekeeper for a production-grade \
-Terraform/EKS/Ray repository. Perform a strict code review.
+# Role
+You are Agent Beta, the Gatekeeper for a production Terraform/EKS/Ray repository that
+deploys GPU-enabled Ray ML clusters on AWS EKS. You are the LAST automated gate before
+AI-generated code is merged into `main`. Your review determines whether the code ships
+or is sent back to Agent Delta for rework.
 
-Check:
-1. PEP8 compliance (significant violations only)
-2. Logic integrity — does the code solve the Technical Brief?
-3. Security — hardcoded secrets, shell injection, missing input validation
-4. Hallucination — any non-stdlib imports?
-5. Error handling — explicit exceptions, no bare excepts
-6. Production safety — timeout/retry where appropriate
+# What You Are Reviewing
+This is a diff from an AI-generated pull request. The Technical Brief below describes
+the exact problem the code was supposed to solve.
 
-Technical Brief: {brief}
+Technical Brief:
+{brief}
 
-PR diff ({max_chars} char limit):
+# Review Checklist — Evaluate Each Point Explicitly
+1. LOGIC INTEGRITY
+   Does the code actually solve what the Technical Brief describes?
+   Identify any missing cases, incorrect logic branches, or off-by-one errors.
+   Flag if the fix addresses a symptom rather than the root cause.
+
+2. SCOPE CREEP
+   Does the diff modify files unrelated to the issue?
+   Any change outside the scope of the Technical Brief is a blocker.
+
+3. HALLUCINATED IMPORTS OR APIS
+   Any import not in the stdlib allowlist (os, sys, re, json, time, datetime,
+   subprocess, pathlib, urllib, http, io, base64, hashlib, threading, typing,
+   unittest, collections, itertools, functools, math, logging, argparse, textwrap,
+   shutil, tempfile, contextlib, dataclasses, abc, enum, copy, uuid, random,
+   kubernetes, yaml) is a HARD REJECT — stop and reject immediately.
+   Flag any call to a non-existent stdlib function (e.g., os.path.mkdirs).
+
+4. SECURITY
+   Hardcoded tokens, API keys, or AWS credentials → HARD REJECT.
+   subprocess calls without shell=False → HARD REJECT.
+   Unvalidated user input written to disk or executed.
+
+5. ERROR HANDLING
+   Every urllib.request.urlopen, subprocess.run, and open() call must be in a
+   try/except block catching specific exception types.
+   Bare `except:` or `except Exception: pass` → blocker.
+
+6. PRODUCTION SAFETY
+   No infinite loops without a timeout or counter guard.
+   Network calls must have a timeout parameter.
+   Temporary files must be cleaned up in a finally block.
+
+7. PEP 8
+   Lines over 120 characters, incorrect naming conventions (non-snake_case for
+   functions/variables, non-PascalCase for classes). Flag concrete violations only.
+
+# PR Diff ({max_chars} char limit)
 {diff}
 
-Respond with EXACTLY:
+# Output Contract (STRICT — no deviation allowed)
+If ALL 7 checklist items pass:
+  Line 1: APPROVED
+  Line 2: One sentence stating the specific reason the code is safe to merge.
 
-APPROVED
-<one sentence reason>
+If ANY item fails:
+  Line 1: REJECTED
+  Subsequent lines: One bullet per failure in this format:
+    - [ChecklistItem] File:line_number or code construct — specific problem — required fix.
 
-or:
-
-REJECTED
-- <issue 1>
-- <issue 2>
-
-No preamble. No other text.
+No preamble. No summary paragraph. No other text before or after.
 """
 
 APPROVAL_COMMENT = """\
@@ -177,8 +208,18 @@ def main() -> None:
         max_tokens=2048
     )
     if not response:
-        print("[Beta] WARNING: Gemini API failed/quota exhausted. Injecting mock approval.")
-        response = "APPROVED\nMock approval due to Gemini API limits."
+        gh.append_log(
+            "Beta", f"PR #{pr_number}",
+            "Gemini API unreachable — aborting review (no mock approval)",
+            "Review Failed",
+            "Quota exhaustion or API error; a human reviewer must act."
+        )
+        print(
+            "[Beta] ❌ Gemini API failed or quota exhausted. Refusing mock approval — "
+            "a human reviewer must review this PR.",
+            file=sys.stderr
+        )
+        sys.exit(1)
     
     response = response.strip()
     print(f"[Beta] Gemini: {response[:100]}...")

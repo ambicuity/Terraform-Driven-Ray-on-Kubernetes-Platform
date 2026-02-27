@@ -19,9 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     # Skip if the issue is already labeled as triaged, duplicate, or needs-info
     # to avoid loops when Gamma edits the issue body.
-    if: |
+    if: |-
       !contains(github.event.issue.labels.*.name, 'status:triaged') &&
       !contains(github.event.issue.labels.*.name, 'duplicate') &&
+      !contains(github.event.issue.labels.*.name, 'needs-info') &&
       !contains(github.event.issue.labels.*.name, 'skip-ai')
 
     steps:

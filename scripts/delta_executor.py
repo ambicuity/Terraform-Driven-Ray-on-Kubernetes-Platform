@@ -26,6 +26,7 @@ from gh_utils import (
     GeminiClient,
     GithubClient,
     GEMINI_MODEL_PRO,
+    ALLOWED_IMPORTS,
     compile_check,
     require_env,
 )
@@ -35,13 +36,7 @@ from gh_utils import (
 # ---------------------------------------------------------------------------
 import re as _re
 
-ALLOWED_IMPORTS = frozenset([
-    "os", "sys", "re", "json", "time", "datetime", "subprocess", "pathlib",
-    "urllib", "http", "io", "base64", "hashlib", "threading", "typing",
-    "unittest", "collections", "itertools", "functools", "math", "logging",
-    "argparse", "textwrap", "shutil", "tempfile", "contextlib", "dataclasses",
-    "abc", "enum", "copy", "uuid", "random", "killing", "kubernetes", "yaml",
-])
+# ALLOWED_IMPORTS imported from gh_utils — see that module for the authoritative list.
 
 PR_TEMPLATE = """\
 ## 🤖 AI-Generated Fix — Issue #{issue_number}
@@ -66,56 +61,121 @@ Agent Beta will perform the final gate review.
 """
 
 IMPLEMENTATION_PROMPT = """\
-You are Agent Delta, a Contributor in an Autonomous AI Engineering Organization.
-Implement a fix for the GitHub issue described below.
+# Context
+You are Agent Delta, the Contributor in an autonomous engineering pipeline for a
+production Terraform/EKS/Ray repository. This repository deploys GPU-enabled Ray
+ML clusters on AWS EKS using Terraform, Helm, KubeRay operator, and OPA policy-as-code.
 
-## Constraints
-- Python 3.11 ONLY. Use stdlib exclusively — no third-party libraries.
-- Handle ALL exceptions explicitly. No bare except clauses.
-- Include a module-level docstring.
-- Return ONLY the raw Python code. No markdown fences.
+# Task
+Implement a fix for the GitHub issue described in the Technical Brief below.
 
-## Technical Brief
+# Hard Constraints
+1. LANGUAGE: Python 3.11 stdlib ONLY. No third-party imports.
+   Allowed top-level modules: os, sys, re, json, time, datetime, subprocess, pathlib,
+   urllib, http, io, base64, hashlib, threading, typing, unittest, collections,
+   itertools, functools, math, logging, argparse, textwrap, shutil, tempfile,
+   contextlib, dataclasses, abc, enum, copy, uuid, random.
+   kubernetes and yaml are also permitted if the issue requires them.
+
+2. ERROR HANDLING:
+   - Every external call (API, subprocess, file I/O) MUST have an explicit try/except.
+   - Catch specific exception types only (no bare `except:`; no `except Exception:` without re-raise or logging).
+   - On unrecoverable errors: log via `logging.getLogger(__name__).error(...)` and raise or exit.
+
+3. CODE STRUCTURE:
+   - Start with a module-level docstring: describe what the fix does, the affected component,
+     and which issue number it resolves.
+   - All functions must have full type annotations.
+   - No hardcoded secrets, tokens, or environment-specific values — read from `os.environ`.
+   - Include a `if __name__ == "__main__":` block if the file is executable.
+
+4. REPOSITORY PATTERNS:
+   - GitHub API calls: use `urllib.request.Request` with Bearer token header.
+   - Gemini API calls: POST to
+     `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent`
+     with `x-goog-api-key` header (NOT a query param).
+   - Terraform files live in `terraform/`; Helm charts in `helm/ray/`;
+     OPA policies in `policies/`; agent scripts in `scripts/`.
+
+5. OUTPUT:
+   Return ONLY raw Python source code. Do NOT wrap in markdown fences.
+   Do NOT add explanatory prose before or after the code.
+
+# Technical Brief
 {brief}
 
-## Issue Title
+# Issue Title
 {title}
 
-## Issue Body
+# Issue Body
 {body}
 
-## Repository File Tree (partial)
+# Repository File Tree (partial)
 {repo_tree}
 """
 
 TEST_PROMPT = """\
-Write a unit test file for the fix below.
+# Context
+You are Agent Delta writing tests to gate your own implementation before it is
+reviewed by Agent Beta. The fix was written for a Terraform/EKS/Ray repository.
 
-## Requirements
-- Python 3.11 stdlib only: unittest and unittest.mock.
-- Use realistic mock payloads — not empty dicts.
-- At least 3 test cases: happy path, missing input, edge case.
-- Return ONLY raw Python code. No markdown fences.
-- Test class: TestIssue{n}(unittest.TestCase)
+# Task
+Write a `unittest` test file for the solution code below.
 
-## Brief
+# Hard Constraints
+1. STDLIB ONLY: `unittest` and `unittest.mock`. No pytest, no third-party libraries.
+2. TEST STRUCTURE:
+   - Class name: `TestIssue{n}(unittest.TestCase)`
+   - Minimum 4 test methods:
+       a. `test_happy_path` — primary success case with realistic mocked data.
+       b. `test_missing_env_var` — verify the code raises/exits cleanly when a required
+          environment variable is absent (use `unittest.mock.patch.dict(os.environ, ...)`).
+       c. `test_api_error_handling` — mock an `urllib.error.HTTPError` and confirm it is
+          handled without an unhandled exception propagating.
+       d. `test_edge_case` — an additional boundary/edge case specific to the logic.
+3. MOCK DATA: Use domain-realistic payloads (EKS cluster names, Ray issue bodies,
+   GitHub issue JSON structures). No empty dicts or lorem ipsum.
+4. Each test must have a one-line docstring stating what behaviour it asserts.
+5. OUTPUT: Raw Python only. No markdown fences. No explanatory prose.
+
+# Technical Brief
 {brief}
 
-## Solution Code
+# Solution Code
 {code}
 """
 
 PREFLIGHT_PROMPT = """\
-You are a strict code reviewer. Check this Python code:
-1. PEP8 violations (significant ones only)
-2. Logic errors or hallucinated function calls
-3. Security issues
-4. Missing error handling
+# Role
+You are a code reviewer performing a pre-flight check on auto-generated Python 3.11
+code before it can be committed to a production Terraform/EKS/Ray repository.
 
-If acceptable, reply with exactly: APPROVED
-If changes needed, list them starting with: REJECTED
-- <issue 1>
-- <issue 2>
+# Review Checklist (check each item — do NOT skip any):
+1. PEP 8 — flag violations that would cause a CI linter to fail (line length, naming,
+   whitespace). Ignore style preferences that are subjective.
+2. Logic Integrity — does the code actually implement what the docstring describes?
+   Flag any dead code paths or unreachable branches.
+3. Hallucinated API calls — are any function/method calls that reference
+   non-existent stdlib APIs or invented parameters? (e.g., `os.path.mkdirs()`,
+   `json.dump_string()`).
+4. Security — hardcoded tokens, API keys, or passwords; shell injection via
+   `subprocess` without `shell=False`; unvalidated user input written to files.
+5. Error handling — every `urllib.request.urlopen`, `subprocess.run`, and
+   `open()` call must be wrapped. Flag any bare `except:` clauses.
+6. Production safety — any infinite loops; missing timeouts on network calls;
+   missing `finally` blocks for resource cleanup.
+
+# Output Contract (STRICT):
+  If ALL checks pass:
+    Respond with exactly the two characters: APPROVED
+    Followed by a single sentence on the next line stating the acceptance reason.
+
+  If ANY check fails:
+    Respond with exactly the word: REJECTED
+    Followed by a bulleted list where each bullet is:
+      - [CheckName] Specific line or code construct. Concrete fix required.
+
+  No preamble. No summary. No other text.
 
 ```python
 {code}
@@ -216,8 +276,18 @@ def main() -> None:
         solution_code = _re.sub(r"\s*```$", "", solution_code)
         
     if not solution_code:
-        print("[Delta] WARNING: Gemini API failed/quota exhausted. Injecting mock solution code to unblock E2E test.")
-        solution_code = 'def apply_ray_worker_memory_limits():\n    print("Enforcing memory limits for ray workers")\n    return True\n'
+        gh.append_log(
+            "Delta", f"#{issue_num}",
+            "Gemini API failed — aborting (no mock code)",
+            "Failed",
+            "Quota exhaustion or API error; re-queue this issue manually."
+        )
+        print(
+            "[Delta] ❌ Gemini API failed (quota exhausted or error). "
+            "Refusing to commit mock code.",
+            file=sys.stderr
+        )
+        sys.exit(1)
 
 
     passed = False
@@ -238,10 +308,9 @@ def main() -> None:
             solution_code = _re.sub(r"\s*```$", "", solution_code)
 
     if not passed:
-        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 3 iterations", "Blocked", feedback[:200])
-        print("[Delta] Pre-flight failed after 3 iterations. Injecting mock solution code.", file=sys.stderr)
-        solution_code = 'def apply_ray_worker_memory_limits():\n    print("Enforcing memory limits for ray workers")\n    return True\n'
-        passed = True
+        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 3 iterations — aborting", "Failed", feedback[:200])
+        print("[Delta] ❌ Pre-flight failed after 3 iterations. Refusing to commit mock code.", file=sys.stderr)
+        sys.exit(1)
 
     # ------------------------------------------------------------------ #
     # STEP 4: Generate test file
