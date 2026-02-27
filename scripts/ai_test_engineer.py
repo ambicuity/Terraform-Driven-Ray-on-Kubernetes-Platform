@@ -140,7 +140,7 @@ def post_comment(body: str, repo: str, pr_num: str, token: str) -> None:
 
 def main() -> None:
     """Main entry point."""
-    from gh_utils import require_env, GeminiClient, GEMINI_MODEL_FLASH
+    from gh_utils import require_env, GeminiClient, GEMINI_MODEL_PRO
 
     env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "GITHUB_REPOSITORY")
     api_key = env["GEMINI_API_KEY"]
@@ -163,7 +163,7 @@ def main() -> None:
     )
 
     print("Generating test suggestions...")
-    gemini = GeminiClient(api_key, model=GEMINI_MODEL_FLASH)
+    gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
     result = gemini.generate(prompt)
     if not result:
         result = "⚠️ Gemini API failed to generate a response (e.g., due to rate limits or safety blocks)."
