@@ -1,4 +1,4 @@
-# MIT License
+#!/usr/bin/env python3
 # Copyright (c) 2026 ambicuity
 import ray
 import time
@@ -26,6 +26,7 @@ def resilient_task(task_id):
     print(f"Task {task_id} completed on node {ray.get_runtime_context().node_id}")
     return task_id
 
+
 def kill_random_worker_pod():
     """Interacts with the Kube API to delete a random Ray worker pod."""
     try:
@@ -36,12 +37,12 @@ def kill_random_worker_pod():
             config.load_kube_config()
 
         v1 = client.CoreV1Api()
-        
+
         # We assume the ray cluster is usually in the "default" or "ray-system" namespace.
         # Since Helm deploys it to the namespace of the chart, querying all namespaces for the label is safest.
         print("🔍 Scanning Kubernetes for active Ray worker pods...")
         pods = v1.list_pod_for_all_namespaces(label_selector="ray.io/node-type=worker")
-        
+
         if not pods.items:
             print("⚠️ No worker pods found. Skipping physical chaos injection.")
             return
@@ -52,7 +53,7 @@ def kill_random_worker_pod():
         namespace = target_pod.metadata.namespace
 
         print(f"🔥 CHAOS INJECTED: Terminating pod {pod_name} in namespace {namespace}...")
-        
+
         # Force delete the pod (Grace period 0)
         v1.delete_namespaced_pod(
             name=pod_name,
@@ -66,43 +67,57 @@ def kill_random_worker_pod():
     except Exception as e:
         print(f"⚠️ Unexpected error during chaos injection: {e}")
 
+
 def run_chaos_test():
-    print("🚀 Initializing Chaos Resilience Test...")
-    
+    print("\U0001f680 Initializing Chaos Resilience Test...")
+
     # Initialize Ray (assumes existing cluster in prod, or local for testing)
     try:
         ray.init(address="auto")
-    except ConnectionError:
-        print("Warning: Ray cluster not found. Initializing local Ray for simulation.")
+    except Exception:
+        print("Warning: Ray cluster not found at 'auto'. Initializing local Ray for simulation.")
         ray.init()
 
     num_tasks = 50  # Increased task count to ensure tasks are running during termination
     print(f"Submitting {num_tasks} tasks with max_retries=3...")
-    
+
     start_time = time.time()
     futures = [resilient_task.remote(i) for i in range(num_tasks)]
-    
+
     # Schedule chaos injection 5 seconds into the workload
-    print("⏱️ Scheduling pod termination in 5 seconds...")
-    chaos_timer = threading.Timer(5.0, kill_random_worker_pod)
+    print("\u23f1\ufe0f Scheduling pod termination in 5 seconds...")
+    chaos_start_time: list[float] = []  # mutable container to capture timestamp from timer thread
+
+    def inject_chaos():
+        chaos_start_time.append(time.time())
+        kill_random_worker_pod()
+
+    chaos_timer = threading.Timer(5.0, inject_chaos)
     chaos_timer.start()
-    
+
     try:
         # Wait for all tasks to complete despite the pod deletion
         ray.get(futures, timeout=120)
         end_time = time.time()
-        
-        mttr_seconds = (end_time - start_time)
+
+        job_duration = end_time - start_time
+        # MTTR = time from chaos injection to all tasks completing
+        if chaos_start_time:
+            mttr_seconds = end_time - chaos_start_time[0]
+        else:
+            mttr_seconds = job_duration  # Chaos never fired; use total duration
+
         print("==================================================")
-        print("✅ SUCCESS: Fault Tolerance Verified")
+        print("\u2705 SUCCESS: Fault Tolerance Verified")
         print("==================================================")
         print(f"All {num_tasks} tasks ultimately completed despite the node loss.")
-        print(f"Job Time (including recovery): {mttr_seconds:.2f} seconds")
+        print(f"Total Job Time:          {job_duration:.2f}s")
+        print(f"MTTR (chaos → recovery): {mttr_seconds:.2f}s")
         print("==================================================")
-        
+
     except Exception as e:
         print("==================================================")
-        print(f"❌ FAILURE: Chaos test failed to recover. Error: {str(e)}")
+        print(f"\u274c FAILURE: Chaos test failed to recover. Error: {str(e)}")
         print("==================================================")
         sys.exit(1)
     finally:

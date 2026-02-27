@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Phase 3
 ### Added
+- ci: Added macOS M1 (`macos-14`) GitHub Actions workflow for zero-cost, local-hardware parity testing (#29)
 - feat: Implemented Multi-AZ pod Topology Spread Constraints for Ray workers (#17)
 - feat: Provisioned Velero for AWS S3 automated cluster backups and DRS (#17)
 - feat: Tuned KubeRay autoscaler idleTimeout down to 30s for FinOps (#17)

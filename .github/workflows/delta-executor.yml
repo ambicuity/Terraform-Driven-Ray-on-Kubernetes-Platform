@@ -1,0 +1,39 @@
+name: Agent Delta — Issue Executor
+
+# Phase 2: Execution — Triggered when 'status:triaged' label is applied to an issue.
+# Delta reads queue.json, selects the highest-priority item, generates an implementation
+# + test file via Gemini, runs a 3-pass pre-flight self-review, commits to a feature
+# branch, and opens a Pull Request.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  execute:
+    name: Delta — Implement Fix
+    runs-on: ubuntu-latest
+    # Only trigger on the exact 'status:triaged' label event
+    if: github.event.label.name == 'status:triaged'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Agent Delta (Contributor)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/delta_executor.py

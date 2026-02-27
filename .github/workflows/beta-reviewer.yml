@@ -1,0 +1,42 @@
+name: Agent Beta — PR Code Review
+
+# Phase 3: Verification — Triggered when a PR with the 'ai-generated' label is opened
+# or updated. Beta performs a deep Gemini-powered review (logic integrity, PEP8,
+# security, hallucination detection), then either approves+merges or rejects with
+# a bulleted change-request comment routing feedback back to Delta.
+
+on:
+  pull_request:
+    # 'labeled' is the only meaningful trigger: fires when Delta adds 'ai-generated'
+    # to the PR after creation. 'opened' and 'synchronize' would fire BEFORE the label
+    # exists, so the if-guard below would always evaluate to false.
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: Beta — Gate Review
+    runs-on: ubuntu-latest
+    # Only review PRs that carry the 'ai-generated' label
+    if: contains(github.event.pull_request.labels.*.name, 'ai-generated')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Agent Beta (Core Maintainer)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/beta_reviewer.py

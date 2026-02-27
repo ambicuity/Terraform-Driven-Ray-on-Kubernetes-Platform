@@ -79,7 +79,10 @@ def parse_plan(plan_file: str) -> str:
         return ""
 
     report = "## 🔍 Infrastructure Drift Detected\n\n"
-    report += "The automated drift detection scan has identified discrepancies between the live AWS environment and the Terraform state.\n\n"
+    report += (
+        "The automated drift detection scan has identified discrepancies between "
+        "the live AWS environment and the Terraform state.\n\n"
+    )
     report += "### Summary of Changes\n\n"
     report += "| Resource Address | Change Type | Resource Type |\n"
     report += "|------------------|-------------|---------------|\n"

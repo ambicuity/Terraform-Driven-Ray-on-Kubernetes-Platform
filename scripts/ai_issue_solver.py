@@ -31,7 +31,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER", "")
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 SYSTEM_PROMPT = """You are a Senior Principal Engineer working on a production-grade Terraform module
 that deploys Ray ML clusters on AWS EKS. A new issue has been filed in the repository.

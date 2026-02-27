@@ -1,0 +1,42 @@
+name: Agent Gamma — Issue Triage
+
+# Phase 1: Ingestion — Triggered when a new issue is opened or edited.
+# Gamma validates the issue for required technical markers, detects duplicates,
+# assigns priority labels, writes a Technical Brief to .ai_metadata/queue.json,
+# and appends a record to INTERNAL_LOG.md.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: write   # Needed to commit queue.json and INTERNAL_LOG.md via Contents API
+
+jobs:
+  triage:
+    name: Gamma — Triage Issue
+    runs-on: ubuntu-latest
+    # Skip if the issue is already labeled as triaged, duplicate, or needs-info
+    # to avoid loops when Gamma edits the issue body.
+    if: |
+      !contains(github.event.issue.labels.*.name, 'status:triaged') &&
+      !contains(github.event.issue.labels.*.name, 'duplicate') &&
+      !contains(github.event.issue.labels.*.name, 'skip-ai')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Agent Gamma (Triager)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/gamma_triage.py
