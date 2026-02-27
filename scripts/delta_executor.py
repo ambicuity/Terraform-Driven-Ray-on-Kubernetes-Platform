@@ -293,11 +293,12 @@ def main() -> None:
 
     passed = False
     feedback = ""
-    for attempt in range(3):
+    for attempt in range(10):
         passed, feedback = preflight(solution_code, gemini)
         if passed:
             break
         print(f"[Delta] Pre-flight attempt {attempt + 1} failed: {feedback[:200]}")
+        sys.stdout.flush()
         fix_prompt = (
             f"Fix the following issues in this Python code:\n{feedback}\n\n"
             f"Code:\n```python\n{solution_code[:3500]}\n```\n\nReturn ONLY corrected Python code."
@@ -310,8 +311,8 @@ def main() -> None:
             solution_code = _re.sub(r"\s*```$", "", solution_code)
 
     if not passed:
-        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 3 iterations — aborting", "Failed", feedback[:200])
-        print("[Delta] ❌ Pre-flight failed after 3 iterations. Refusing to commit mock code.", file=sys.stderr)
+        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 10 iterations — aborting", "Failed", feedback[:200])
+        print("[Delta] ❌ Pre-flight failed after 10 iterations. Refusing to commit mock code.", file=sys.stderr)
         sys.exit(1)
 
     # ------------------------------------------------------------------ #
