@@ -21,9 +21,42 @@ def run_kubectl_json(cmd_args):
     return json.loads(result.stdout)
 
 
+def check_kubeconfig_exists():
+    """Check if kubeconfig file exists and return the path."""
+    # Check KUBECONFIG env var first
+    kubeconfig_path = os.environ.get('KUBECONFIG')
+
+    if kubeconfig_path:
+        # KUBECONFIG can be a colon-separated list of paths
+        paths = kubeconfig_path.split(':')
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        # If none of the paths exist, report the first one
+        return None, paths[0]
+
+    # Fall back to default location
+    default_path = os.path.expanduser('~/.kube/config')
+    if os.path.exists(default_path):
+        return default_path
+
+    return None, default_path
+
+
 def get_cluster_fingerprint(context_name=None):
     """Generates a stable fingerprint for the current Kubernetes cluster."""
     try:
+        # Check if kubeconfig file exists
+        kubeconfig_result = check_kubeconfig_exists()
+        if isinstance(kubeconfig_result, tuple):
+            # File doesn't exist
+            _, missing_path = kubeconfig_result
+            raise FileNotFoundError(
+                f"Kubeconfig file not found at: {missing_path}\n"
+                f"Please ensure your Kubernetes configuration is set up correctly.\n"
+                f"You may need to run: aws eks update-kubeconfig --name <cluster-name> --region <region>"
+            )
+
         # Check kubectl availability
         subprocess.run(["kubectl", "version", "--client"], capture_output=True, check=True)
 
@@ -51,8 +84,12 @@ def get_cluster_fingerprint(context_name=None):
             "version": server_version
         }
 
-    except FileNotFoundError:
-        return {"status": "error", "message": "kubectl not found in PATH."}
+    except FileNotFoundError as e:
+        # Handle both kubectl not found and kubeconfig not found
+        error_msg = str(e)
+        if "kubectl" in error_msg.lower() and "kubeconfig" not in error_msg.lower():
+            error_msg = "kubectl not found in PATH."
+        return {"status": "error", "message": error_msg}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
