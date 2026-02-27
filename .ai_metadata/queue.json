@@ -16,6 +16,14 @@
       "brief": "[Beginner]: agent_context_builder.py should respect MEMORY_DIR environment variable",
       "branch": "ai-fix/37",
       "url": "https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/issues/37"
+    },
+    {
+      "issue_number": 39,
+      "title": "bug: validate_cluster_identity.py crashes on missing kubeconfig",
+      "priority": "medium",
+      "brief": "bug: validate_cluster_identity.py crashes on missing kubeconfig",
+      "branch": "ai-fix/39",
+      "url": "https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/issues/39"
     }
   ],
   "in_progress": null,
