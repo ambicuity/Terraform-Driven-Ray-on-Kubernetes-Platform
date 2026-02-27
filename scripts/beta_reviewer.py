@@ -24,7 +24,7 @@ import sys
 from gh_utils import (
     GeminiClient,
     GithubClient,
-    GEMINI_MODEL_PRO,
+    GEMINI_MODEL_FLASH,
     ALLOWED_IMPORTS,
     require_env,
 )
@@ -167,7 +167,7 @@ def get_brief(queue: dict, pr_number: int) -> str:
 def main() -> None:
     env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "GITHUB_REPOSITORY")
     gh = GithubClient(env["GITHUB_TOKEN"], env["GITHUB_REPOSITORY"])
-    gemini = GeminiClient(env["GEMINI_API_KEY"], model=GEMINI_MODEL_PRO)  # security review: reasoning quality critical
+    gemini = GeminiClient(env["GEMINI_API_KEY"], model=GEMINI_MODEL_FLASH)  # security review: reasoning quality critical
     pr_number = int(env["PR_NUMBER"])
 
     print(f"[Beta] Reviewing PR #{pr_number} in {env['GITHUB_REPOSITORY']}...")

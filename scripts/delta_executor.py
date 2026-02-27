@@ -25,7 +25,7 @@ import sys
 from gh_utils import (
     GeminiClient,
     GithubClient,
-    GEMINI_MODEL_PRO,
+    GEMINI_MODEL_FLASH,
     ALLOWED_IMPORTS,
     compile_check,
     require_env,
@@ -228,7 +228,7 @@ def select_issue(queue: dict, issue_number: str) -> dict | None:
 def main() -> None:
     env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "ISSUE_NUMBER", "GITHUB_REPOSITORY")
     gh = GithubClient(env["GITHUB_TOKEN"], env["GITHUB_REPOSITORY"])
-    gemini = GeminiClient(env["GEMINI_API_KEY"], model=GEMINI_MODEL_PRO)  # code gen: reasoning quality critical
+    gemini = GeminiClient(env["GEMINI_API_KEY"], model=GEMINI_MODEL_FLASH)  # code gen: reasoning quality critical
     issue_number_str = env["ISSUE_NUMBER"]
     issue_num = int(issue_number_str)
 
