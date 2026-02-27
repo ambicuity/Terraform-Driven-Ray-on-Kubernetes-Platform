@@ -51,7 +51,7 @@ LOG_PATH = "INTERNAL_LOG.md"
 GEMINI_MODEL_PRO   = "gemini-2.5-flash"    # temporarily using flash to bypass quota limits
 GEMINI_MODEL_FLASH = "gemini-2.5-flash"  # fast, cost-efficient for triage / governance
 GEMINI_MODEL       = GEMINI_MODEL_PRO     # default for any agent that does not override
-_GEMINI_RETRY_DELAYS = [10, 30, 60]  # seconds
+_GEMINI_RETRY_DELAYS = [1, 2, 3]  # seconds (temporarily reduced for fast failing on 429)
 
 # Files / path prefixes agents are NEVER allowed to write
 _PROTECTED_PATH_PREFIXES = (".github/workflows/",)
