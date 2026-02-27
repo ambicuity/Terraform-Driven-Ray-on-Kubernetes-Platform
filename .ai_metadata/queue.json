@@ -8,6 +8,14 @@
       "brief": "The Node Termination Handler (NTH) currently uses `AmazonSQSFullAccess`, violating least privilege. This issue proposes refactoring NTH IAM permissions to a tightly scoped policy allowing only necessary SQS actions on a dedicated, explicitly provisioned SQS queue for NTH events, routed via EventBridge. This enhances security by minimizing the blast radius of a compromised NTH pod.",
       "branch": "ai-fix/35",
       "url": "https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/issues/35"
+    },
+    {
+      "issue_number": 37,
+      "title": "[Beginner]: agent_context_builder.py should respect MEMORY_DIR environment variable",
+      "priority": "medium",
+      "brief": "[Beginner]: agent_context_builder.py should respect MEMORY_DIR environment variable",
+      "branch": "ai-fix/37",
+      "url": "https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/issues/37"
     }
   ],
   "in_progress": null,
