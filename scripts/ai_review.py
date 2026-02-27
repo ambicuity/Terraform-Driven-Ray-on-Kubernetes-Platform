@@ -172,6 +172,8 @@ def main() -> None:
 
     gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
     review = gemini.generate(prompt)
+    if not review:
+        review = "⚠️ Gemini API failed to generate a response (e.g., due to rate limits or safety blocks)."
     print(f"Received review: {len(review)} characters")
 
     # Step 4: Post the comment

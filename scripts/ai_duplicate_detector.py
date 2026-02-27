@@ -172,6 +172,8 @@ def main() -> None:
     print("Sending to Gemini for analysis...")
     gemini = GeminiClient(env["GEMINI_API_KEY"], model=GEMINI_MODEL_FLASH)
     result = gemini.generate(prompt)
+    if not result:
+        result = "⚠️ Gemini API failed to generate a response (e.g., due to rate limits or safety blocks)."
     print(f"Result: {len(result)} chars")
 
     post_comment(result, issue_number, github_repository, github_token)

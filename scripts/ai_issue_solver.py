@@ -182,6 +182,8 @@ def main() -> None:
     
     gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
     plan = gemini.generate(prompt)
+    if not plan:
+        plan = "⚠️ Gemini API failed to generate a response (e.g., due to rate limits or safety blocks)."
     print(f"Received plan: {len(plan)} characters")
 
     # Post the comment

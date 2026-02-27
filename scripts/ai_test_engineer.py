@@ -138,6 +138,8 @@ def main() -> None:
     print("Generating test suggestions...")
     gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
     result = gemini.generate(prompt)
+    if not result:
+        result = "⚠️ Gemini API failed to generate a response (e.g., due to rate limits or safety blocks)."
     print(f"Generated: {len(result)} chars")
 
     post_comment(result, repo, pr_num, token)
