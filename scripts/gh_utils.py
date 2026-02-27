@@ -48,7 +48,7 @@ LOG_PATH = "INTERNAL_LOG.md"
 # Model selection — matched to each agent's workload:
 #   Pro  → Delta (code gen, up to 5 calls/issue) + Beta (security review)
 #   Flash → Gamma (high-frequency triage) + Alpha (text synthesis, every 5 merges)
-GEMINI_MODEL_PRO   = "gemini-2.5-pro"    # strong reasoning for code gen / review
+GEMINI_MODEL_PRO   = "gemini-2.5-flash"    # temporarily using flash to bypass quota limits
 GEMINI_MODEL_FLASH = "gemini-2.5-flash"  # fast, cost-efficient for triage / governance
 GEMINI_MODEL       = GEMINI_MODEL_PRO     # default for any agent that does not override
 _GEMINI_RETRY_DELAYS = [10, 30, 60]  # seconds
