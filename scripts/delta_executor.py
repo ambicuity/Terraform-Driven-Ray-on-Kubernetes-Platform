@@ -210,6 +210,11 @@ def main() -> None:
         brief=brief, title=title, body=body, repo_tree=repo_tree
     )
     solution_code = gemini.generate(impl_prompt, max_tokens=4096)
+    if solution_code.startswith("```"):
+        solution_code = _re.sub(r"^```python\s*", "", solution_code)
+        solution_code = _re.sub(r"^```\w*\s*", "", solution_code)
+        solution_code = _re.sub(r"\s*```$", "", solution_code)
+        
     if not solution_code:
         gh.append_log("Delta", f"#{issue_num}", "Gemini returned empty solution", "Failed", "Aborting")
         sys.exit(1)
@@ -226,6 +231,10 @@ def main() -> None:
             f"Code:\n```python\n{solution_code[:3500]}\n```\n\nReturn ONLY corrected Python code."
         )
         solution_code = gemini.generate(fix_prompt, max_tokens=4096) or solution_code
+        if solution_code.startswith("```"):
+            solution_code = _re.sub(r"^```python\s*", "", solution_code)
+            solution_code = _re.sub(r"^```\w*\s*", "", solution_code)
+            solution_code = _re.sub(r"\s*```$", "", solution_code)
 
     if not passed:
         gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 3 iterations", "Blocked", feedback[:200])
@@ -239,6 +248,11 @@ def main() -> None:
         TEST_PROMPT.format(n=issue_num, brief=brief, code=solution_code[:3000]),
         max_tokens=2048
     )
+    if test_code.startswith("```"):
+        test_code = _re.sub(r"^```python\s*", "", test_code)
+        test_code = _re.sub(r"^```\w*\s*", "", test_code)
+        test_code = _re.sub(r"\s*```$", "", test_code)
+        
     if not test_code:
         test_code = (
             f'"""Placeholder tests for issue #{issue_num}."""\n'
