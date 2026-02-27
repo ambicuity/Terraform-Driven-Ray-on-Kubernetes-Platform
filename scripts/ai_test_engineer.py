@@ -16,15 +16,7 @@ Environment variables required:
 import os
 import sys
 import json
-import time
-import urllib.request
-import urllib.error
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-PR_NUMBER = os.environ.get("PR_NUMBER", "")
-GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
 MAX_DIFF_CHARS = 50000
 
 SYSTEM_PROMPT = """You are a Senior Test Engineer specializing in Infrastructure-as-Code and ML platform testing.
@@ -51,12 +43,14 @@ If the changes are trivial (e.g., docs or CI config), say so and skip test gener
 """
 
 
-def github_api(url: str, accept: str = "application/vnd.github.v3+json"):
+def github_api(url: str, token: str, accept: str = "application/vnd.github.v3+json"):
     """Make an authenticated GitHub API request."""
+    import urllib.request
+    import urllib.error
     req = urllib.request.Request(
         url,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": accept,
             "User-Agent": "gemini-test-engineer",
         },
@@ -69,63 +63,26 @@ def github_api(url: str, accept: str = "application/vnd.github.v3+json"):
         return ""
 
 
-def fetch_pr_diff() -> str:
+def fetch_pr_diff(repo: str, pr_num: str, token: str) -> str:
     """Fetch the PR diff."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/pulls/{PR_NUMBER}"
-    diff = github_api(url, "application/vnd.github.v3.diff")
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_num}"
+    diff = github_api(url, token, "application/vnd.github.v3.diff")
     if len(diff) > MAX_DIFF_CHARS:
         diff = diff[:MAX_DIFF_CHARS] + "\n\n... [diff truncated] ..."
     return diff
 
 
-def fetch_pr_metadata() -> dict:
+def fetch_pr_metadata(repo: str, pr_num: str, token: str) -> dict:
     """Fetch PR metadata."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/pulls/{PR_NUMBER}"
-    raw = github_api(url)
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_num}"
+    raw = github_api(url, token)
     return json.loads(raw) if raw else {}
 
 
-def call_gemini(prompt: str) -> str:
-    """Call Gemini API with retry."""
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
-    }
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    )
-
-    for attempt in range(4):
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                candidates = result.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "")
-                return "Gemini returned an empty response."
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            if e.code in (429, 500, 503) and attempt < 3:
-                delay = [10, 30, 60][attempt]
-                print(f"Gemini {e.code} ({body}) — retry in {delay}s...", file=sys.stderr)
-                time.sleep(delay)
-                continue
-            return f"⚠️ Gemini API error: {e.code} - {body}"
-
-    return "⚠️ Gemini API failed after retries."
-
-
-def post_comment(body: str) -> None:
+def post_comment(body: str, repo: str, pr_num: str, token: str) -> None:
     """Post the test suggestions as a PR comment."""
+    import urllib.request
+    import urllib.error
     comment = (
         "## 🧪 AI Test Engineer\n\n"
         f"{body}\n\n"
@@ -133,12 +90,12 @@ def post_comment(body: str) -> None:
         "*Automated test suggestions by Gemini AI. "
         "Review and adapt before committing.*"
     )
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/issues/{PR_NUMBER}/comments"
+    url = f"https://api.github.com/repos/{repo}/issues/{pr_num}/comments"
     req = urllib.request.Request(
         url,
         data=json.dumps({"body": comment}).encode("utf-8"),
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json",
             "Content-Type": "application/json",
             "User-Agent": "gemini-test-engineer",
@@ -156,15 +113,18 @@ def post_comment(body: str) -> None:
 
 def main() -> None:
     """Main entry point."""
-    for var in ["GEMINI_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "GITHUB_REPOSITORY"]:
-        if not os.environ.get(var):
-            print(f"Missing: {var}", file=sys.stderr)
-            sys.exit(1)
+    from gh_utils import require_env, GeminiClient, GEMINI_MODEL_PRO
 
-    print(f"Analyzing PR #{PR_NUMBER} for test opportunities...")
+    env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "GITHUB_REPOSITORY")
+    api_key = env["GEMINI_API_KEY"]
+    token = env["GITHUB_TOKEN"]
+    pr_num = env["PR_NUMBER"]
+    repo = env["GITHUB_REPOSITORY"]
 
-    diff = fetch_pr_diff()
-    metadata = fetch_pr_metadata()
+    print(f"Analyzing PR #{pr_num} for test opportunities...")
+
+    diff = fetch_pr_diff(repo, pr_num, token)
+    metadata = fetch_pr_metadata(repo, pr_num, token)
     title = metadata.get("title", "N/A")
     print(f"PR: {title} ({len(diff)} chars)")
 
@@ -176,10 +136,11 @@ def main() -> None:
     )
 
     print("Generating test suggestions...")
-    result = call_gemini(prompt)
+    gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
+    result = gemini.generate(prompt)
     print(f"Generated: {len(result)} chars")
 
-    post_comment(result)
+    post_comment(result, repo, pr_num, token)
 
 
 if __name__ == "__main__":

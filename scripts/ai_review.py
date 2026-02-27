@@ -23,15 +23,8 @@ import time
 import urllib.request
 import urllib.error
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-PR_NUMBER = os.environ.get("PR_NUMBER", "")
-GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
 MAX_DIFF_CHARS = 60000  # Truncate very large diffs to stay within token limits
+
 
 SYSTEM_PROMPT = (
     "You are operating as a Senior Principal Engineer with 20+ years of experience "
@@ -66,13 +59,13 @@ SYSTEM_PROMPT = (
 )
 
 
-def fetch_pr_diff() -> str:
+def fetch_pr_diff(repo: str, pr_num: str, token: str) -> str:
     """Fetch the PR diff from the GitHub API."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/pulls/{PR_NUMBER}"
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_num}"
     req = urllib.request.Request(
         url,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3.diff",
             "User-Agent": "gemini-ai-reviewer",
         },
@@ -88,13 +81,13 @@ def fetch_pr_diff() -> str:
         sys.exit(1)
 
 
-def fetch_pr_metadata() -> dict:
+def fetch_pr_metadata(repo: str, pr_num: str, token: str) -> dict:
     """Fetch PR title, body, and file list."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/pulls/{PR_NUMBER}"
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_num}"
     req = urllib.request.Request(
         url,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "gemini-ai-reviewer",
         },
@@ -107,77 +100,8 @@ def fetch_pr_metadata() -> dict:
         return {}
 
 
-def call_gemini(diff: str, metadata: dict) -> str:
-    """Send the diff to Gemini and get a review, with retry on rate limits."""
-    pr_context = (
-        f"PR Title: {metadata.get('title', 'N/A')}\n"
-        f"PR Author: {metadata.get('user', {}).get('login', 'N/A')}\n"
-        f"Changed Files: {metadata.get('changed_files', 'N/A')}\n"
-        f"Additions: +{metadata.get('additions', 0)} | "
-        f"Deletions: -{metadata.get('deletions', 0)}\n"
-        f"PR Description:\n{metadata.get('body', 'No description provided.')}\n"
-    )
 
-    user_prompt = f"{pr_context}\n\n--- DIFF START ---\n{diff}\n--- DIFF END ---"
-
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": SYSTEM_PROMPT + "\n\n" + user_prompt}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 4096,
-        },
-    }
-
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    )
-
-    max_retries = 3
-    backoff_delays = [10, 30, 60]  # seconds
-
-    for attempt in range(max_retries + 1):
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                candidates = result.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "No response generated.")
-                return "Gemini returned an empty response."
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            # Retry on rate limit (429) or server errors (500, 503)
-            if e.code in (429, 500, 503) and attempt < max_retries:
-                delay = backoff_delays[attempt]
-                print(
-                    f"Gemini API {e.code} — retrying in {delay}s "
-                    f"(attempt {attempt + 1}/{max_retries})...",
-                    file=sys.stderr,
-                )
-                time.sleep(delay)
-                continue
-            print(f"Gemini API error: {e.code} — {body}", file=sys.stderr)
-            return f"⚠️ Gemini API returned an error: {e.code}"
-
-    return "⚠️ Gemini API failed after all retries."
-
-
-def post_comment(body: str) -> None:
+def post_comment(body: str, repo: str, pr_num: str, token: str) -> None:
     """Post the review as a PR comment."""
     comment_body = (
         "## 🤖 Gemini AI Review\n\n"
@@ -187,14 +111,14 @@ def post_comment(body: str) -> None:
         "This is advisory — always apply engineering judgment.*"
     )
 
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/issues/{PR_NUMBER}/comments"
+    url = f"https://api.github.com/repos/{repo}/issues/{pr_num}/comments"
     payload = json.dumps({"body": comment_body}).encode("utf-8")
 
     req = urllib.request.Request(
         url,
         data=payload,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json",
             "Content-Type": "application/json",
             "User-Agent": "gemini-ai-reviewer",
@@ -215,38 +139,43 @@ def post_comment(body: str) -> None:
 
 def main() -> None:
     """Main entry point."""
-    # Validate required environment variables
-    missing = []
-    if not GEMINI_API_KEY:
-        missing.append("GEMINI_API_KEY")
-    if not GITHUB_TOKEN:
-        missing.append("GITHUB_TOKEN")
-    if not PR_NUMBER:
-        missing.append("PR_NUMBER")
-    if not GITHUB_REPOSITORY:
-        missing.append("GITHUB_REPOSITORY")
+    from gh_utils import require_env, GeminiClient, GEMINI_MODEL_PRO
 
-    if missing:
-        print(f"Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
+    env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", "GITHUB_REPOSITORY")
+    api_key = env["GEMINI_API_KEY"]
+    token = env["GITHUB_TOKEN"]
+    pr_num = env["PR_NUMBER"]
+    repo = env["GITHUB_REPOSITORY"]
 
-    print(f"Reviewing PR #{PR_NUMBER} in {GITHUB_REPOSITORY}...")
+    print(f"Reviewing PR #{pr_num} in {repo}...")
 
     # Step 1: Fetch the diff
-    diff = fetch_pr_diff()
+    diff = fetch_pr_diff(repo, pr_num, token)
     print(f"Fetched diff: {len(diff)} characters")
 
     # Step 2: Fetch PR metadata
-    metadata = fetch_pr_metadata()
+    metadata = fetch_pr_metadata(repo, pr_num, token)
     print(f"PR: {metadata.get('title', 'N/A')}")
 
     # Step 3: Call Gemini
     print("Sending to Gemini for review...")
-    review = call_gemini(diff, metadata)
+    pr_context = (
+        f"PR Title: {metadata.get('title', 'N/A')}\n"
+        f"PR Author: {metadata.get('user', {}).get('login', 'N/A')}\n"
+        f"Changed Files: {metadata.get('changed_files', 'N/A')}\n"
+        f"Additions: +{metadata.get('additions', 0)} | "
+        f"Deletions: -{metadata.get('deletions', 0)}\n"
+        f"PR Description:\n{metadata.get('body', 'No description provided.')}\n"
+    )
+    user_prompt = f"{pr_context}\n\n--- DIFF START ---\n{diff}\n--- DIFF END ---"
+    prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+
+    gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
+    review = gemini.generate(prompt)
     print(f"Received review: {len(review)} characters")
 
     # Step 4: Post the comment
-    post_comment(review)
+    post_comment(review, repo, pr_num, token)
 
 
 if __name__ == "__main__":

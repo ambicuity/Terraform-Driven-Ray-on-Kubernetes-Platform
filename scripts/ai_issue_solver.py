@@ -24,14 +24,7 @@ import time
 import urllib.request
 import urllib.error
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER", "")
-GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
+
 
 SYSTEM_PROMPT = """You are a Senior Principal Engineer working on a production-grade Terraform module
 that deploys Ray ML clusters on AWS EKS. A new issue has been filed in the repository.
@@ -68,12 +61,14 @@ when possible. Do NOT pad with generic advice — focus on the concrete implemen
 """
 
 
-def github_api(url: str, accept: str = "application/vnd.github.v3+json") -> dict:
+def github_api(url: str, token: str, accept: str = "application/vnd.github.v3+json") -> dict:
     """Make an authenticated GitHub API request."""
+    import urllib.request
+    import urllib.error
     req = urllib.request.Request(
         url,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": accept,
             "User-Agent": "gemini-issue-solver",
         },
@@ -86,16 +81,16 @@ def github_api(url: str, accept: str = "application/vnd.github.v3+json") -> dict
         return {}
 
 
-def fetch_issue() -> dict:
+def fetch_issue(repo: str, issue_num: str, token: str) -> dict:
     """Fetch the issue details."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/issues/{ISSUE_NUMBER}"
-    return github_api(url)
+    url = f"https://api.github.com/repos/{repo}/issues/{issue_num}"
+    return github_api(url, token)
 
 
-def fetch_repo_tree() -> str:
+def fetch_repo_tree(repo: str, token: str) -> str:
     """Fetch the repository file tree for context."""
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/git/trees/main?recursive=1"
-    data = github_api(url)
+    url = f"https://api.github.com/repos/{repo}/git/trees/main?recursive=1"
+    data = github_api(url, token)
     if not data:
         return "Unable to fetch repository tree."
 
@@ -116,74 +111,10 @@ def fetch_repo_tree() -> str:
     return "\n".join(sorted(paths))
 
 
-def call_gemini(issue: dict, repo_tree: str) -> str:
-    """Send the issue to Gemini and get a solution plan."""
-    issue_context = (
-        f"Issue Title: {issue.get('title', 'N/A')}\n"
-        f"Issue Author: {issue.get('user', {}).get('login', 'N/A')}\n"
-        f"Labels: {', '.join(l['name'] for l in issue.get('labels', []))}\n"
-        f"\nIssue Body:\n{issue.get('body', 'No description provided.')}\n"
-        f"\n--- REPOSITORY FILE TREE ---\n{repo_tree}\n--- END FILE TREE ---"
-    )
-
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": SYSTEM_PROMPT + "\n\n" + issue_context}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 4096,
-        },
-    }
-
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    )
-
-    max_retries = 3
-    backoff_delays = [10, 30, 60]
-
-    for attempt in range(max_retries + 1):
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(req) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                candidates = result.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "No response generated.")
-                return "Gemini returned an empty response."
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            if e.code in (429, 500, 503) and attempt < max_retries:
-                delay = backoff_delays[attempt]
-                print(
-                    f"Gemini API {e.code} — retrying in {delay}s "
-                    f"(attempt {attempt + 1}/{max_retries})...",
-                    file=sys.stderr,
-                )
-                time.sleep(delay)
-                continue
-            print(f"Gemini API error: {e.code} — {body}", file=sys.stderr)
-            return f"⚠️ Gemini API returned an error: {e.code}"
-
-    return "⚠️ Gemini API failed after all retries."
-
-
-def post_comment(body: str) -> None:
+def post_comment(body: str, repo: str, issue_num: str, token: str) -> None:
     """Post the solution plan as an issue comment."""
+    import urllib.request
+    import urllib.error
     comment_body = (
         "## 🤖 AI Solution Plan\n\n"
         f"{body}\n\n"
@@ -193,14 +124,14 @@ def post_comment(body: str) -> None:
         "before implementation.*"
     )
 
-    url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/issues/{ISSUE_NUMBER}/comments"
+    url = f"https://api.github.com/repos/{repo}/issues/{issue_num}/comments"
     payload = json.dumps({"body": comment_body}).encode("utf-8")
 
     req = urllib.request.Request(
         url,
         data=payload,
         headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"token {token}",
             "Accept": "application/vnd.github.v3+json",
             "Content-Type": "application/json",
             "User-Agent": "gemini-issue-solver",
@@ -221,36 +152,40 @@ def post_comment(body: str) -> None:
 
 def main() -> None:
     """Main entry point."""
-    missing = []
-    if not GEMINI_API_KEY:
-        missing.append("GEMINI_API_KEY")
-    if not GITHUB_TOKEN:
-        missing.append("GITHUB_TOKEN")
-    if not ISSUE_NUMBER:
-        missing.append("ISSUE_NUMBER")
-    if not GITHUB_REPOSITORY:
-        missing.append("GITHUB_REPOSITORY")
+    from gh_utils import require_env, GeminiClient, GEMINI_MODEL_PRO
 
-    if missing:
-        print(f"Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
+    env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "ISSUE_NUMBER", "GITHUB_REPOSITORY")
+    api_key = env["GEMINI_API_KEY"]
+    token = env["GITHUB_TOKEN"]
+    issue_num = env["ISSUE_NUMBER"]
+    repo = env["GITHUB_REPOSITORY"]
 
-    print(f"Analyzing issue #{ISSUE_NUMBER} in {GITHUB_REPOSITORY}...")
+    print(f"Analyzing issue #{issue_num} in {repo}...")
 
     # Fetch context
-    issue = fetch_issue()
+    issue = fetch_issue(repo, issue_num, token)
     print(f"Issue: {issue.get('title', 'N/A')}")
 
-    repo_tree = fetch_repo_tree()
+    repo_tree = fetch_repo_tree(repo, token)
     print(f"Fetched repo tree: {len(repo_tree)} characters")
 
     # Call Gemini
     print("Sending to Gemini for analysis...")
-    plan = call_gemini(issue, repo_tree)
+    issue_context = (
+        f"Issue Title: {issue.get('title', 'N/A')}\n"
+        f"Issue Author: {issue.get('user', {}).get('login', 'N/A')}\n"
+        f"Labels: {', '.join(l['name'] for l in issue.get('labels', []))}\n"
+        f"\nIssue Body:\n{issue.get('body', 'No description provided.')}\n"
+        f"\n--- REPOSITORY FILE TREE ---\n{repo_tree}\n--- END FILE TREE ---"
+    )
+    prompt = f"{SYSTEM_PROMPT}\n\n{issue_context}"
+    
+    gemini = GeminiClient(api_key, model=GEMINI_MODEL_PRO)
+    plan = gemini.generate(prompt)
     print(f"Received plan: {len(plan)} characters")
 
     # Post the comment
-    post_comment(plan)
+    post_comment(plan, repo, issue_num, token)
 
 
 if __name__ == "__main__":
