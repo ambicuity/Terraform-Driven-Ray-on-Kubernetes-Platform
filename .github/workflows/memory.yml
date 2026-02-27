@@ -52,7 +52,7 @@ jobs:
 
       # Cache pip packages separately from model weights
       - name: Cache pip packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: memory-pip-${{ runner.os }}-${{ hashFiles('**/requirements-memory.txt') }}
@@ -62,7 +62,7 @@ jobs:
       # Key is the model name — invalidated only on model upgrade
       - name: Cache embedding model
         id: model-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/huggingface/hub
           key: memory-model-bge-small-en-v1.5-${{ runner.os }}
