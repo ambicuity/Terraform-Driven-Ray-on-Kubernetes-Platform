@@ -1,0 +1,32 @@
+name: Show and Tell
+description: Show off what you've built using the platform.
+title: "[Showcase]: "
+labels: ["showcase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We love seeing what you build! Tell us about your project.
+  - type: textarea
+    id: description
+    attributes:
+      label: "What did you build?"
+      description: "Describe your project and how it uses the platform."
+      placeholder: "I built a..."
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: "Project Link"
+      description: "Link to your repository, demo, or blog post."
+      placeholder: "https://github.com/..."
+    validations:
+      required: false
+  - type: textarea
+    id: feedback
+    attributes:
+      label: "What feedback are you looking for?"
+      description: "Are there specific areas you want the community's thoughts on?"
+    validations:
+      required: false

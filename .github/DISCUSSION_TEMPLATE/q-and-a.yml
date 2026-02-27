@@ -1,0 +1,32 @@
+name: Q&A
+description: Ask the community for help.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to Q&A! Please make sure your question hasn't already been asked by searching existing discussions.
+  - type: textarea
+    id: question
+    attributes:
+      label: "What is your question?"
+      description: "Be as specific as possible."
+      placeholder: "How do I configure..."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "Context"
+      description: "Provide any relevant context, code snippets, or logs."
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: "Platform Version"
+      description: "Which version of the platform are you using?"
+      placeholder: "e.g., v1.2.0"
+    validations:
+      required: false

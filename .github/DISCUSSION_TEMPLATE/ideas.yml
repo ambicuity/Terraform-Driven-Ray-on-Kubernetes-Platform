@@ -1,0 +1,32 @@
+name: Ideas
+description: Share an idea or propose a new feature for the platform.
+title: "[Idea]: "
+labels: ["enhancement", "discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea! Please provide as much context as possible so the community can discuss it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What is the problem or opportunity?"
+      description: "Describe the core issue you are trying to solve."
+      placeholder: "When I try to..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe what you would like to see happen."
+      placeholder: "I suggest we..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Have you considered any alternative solutions?"
+    validations:
+      required: false
