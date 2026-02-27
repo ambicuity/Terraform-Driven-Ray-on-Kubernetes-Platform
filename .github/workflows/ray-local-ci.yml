@@ -59,7 +59,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check OPA/Rego policy files exist
         run: |
@@ -108,7 +108,7 @@ jobs:
     steps:
       # ── 1: Checkout ─────────────────────────────────────────────────────────
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # ── 2: Python + dependencies ──────────────────────────────────────────────
       - name: Set up Python 3.11
