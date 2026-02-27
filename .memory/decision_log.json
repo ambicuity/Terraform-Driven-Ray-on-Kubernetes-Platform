@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "decisions": [
+    {
+      "type": "ARCH_DECISION",
+      "context": "Using label-swap as distributed lock\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:41",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "ARCH-8B1D270C",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "SECURITY_BOUNDARY",
+      "context": "Agents cannot write to .github/workflows/\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:53",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "SEC-D27516E3",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "PERFORMANCE_CONSTRAINT",
+      "context": "Gemini Pro thinking budget capped at 8192 tokens\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:62",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "PERF-953638CD",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "ARCH_DECISION",
+      "context": "Use Gemini Flash for triage — lower cost\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:72",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "ARCH-861DCE44",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "SECURITY_BOUNDARY",
+      "context": "No secrets in environment except via os.environ\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:73",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "SEC-DEFB1D8C",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "ARCH_DECISION",
+      "context": "something important\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:91",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "ARCH-116B8318",
+      "timestamp": "2026-02-27T19:18:44Z"
+    },
+    {
+      "type": "ARCH_DECISION",
+      "context": "Label swap chosen over file-based lock for atomicity\\n\"",
+      "rationale": "",
+      "tradeoffs": "",
+      "source": "tests/test_decision_extractor.py:149",
+      "related_files": [
+        "tests/test_decision_extractor.py"
+      ],
+      "decision_id": "ARCH-53869964",
+      "timestamp": "2026-02-27T19:18:44Z"
+    }
+  ]
+}

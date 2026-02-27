@@ -1,0 +1,929 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-02-27T19:18:44Z",
+  "workflows": [
+    {
+      "name": "AI Documentation Sync",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ai-doc-sync.yml",
+      "triggers": [
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "pull_request",
+        "check"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "AI Duplicate Issue Detector",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ai-duplicate-detector.yml",
+      "triggers": [
+        "issues",
+        "types: [opened]"
+      ],
+      "jobs": [
+        "issues",
+        "detect"
+      ],
+      "depends_on_scripts": [
+        "scripts/ai_duplicate_detector.py"
+      ],
+      "permissions": {
+        "issues": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Gemini AI Issue Solver",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ai-issue-solver.yml",
+      "triggers": [
+        "issues",
+        "types: [opened]",
+        "issue_comment",
+        "types: [created]"
+      ],
+      "jobs": [
+        "issues",
+        "issue_comment",
+        "solve"
+      ],
+      "depends_on_scripts": [
+        "scripts/ai_issue_solver.py"
+      ],
+      "permissions": {
+        "issues": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "AI Test Engineer",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ai-test-engineer.yml",
+      "triggers": [
+        "pull_request",
+        "types: [opened, synchronize, labeled]",
+        "issue_comment",
+        "types: [created]"
+      ],
+      "jobs": [
+        "pull_request",
+        "issue_comment",
+        "suggest-tests"
+      ],
+      "depends_on_scripts": [
+        "scripts/ai_test_engineer.py"
+      ],
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "write"
+      }
+    },
+    {
+      "name": "Agent Alpha — Governance Cycle",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/alpha-governor.yml",
+      "triggers": [
+        "repository_dispatch",
+        "types: [governance-cycle]",
+        "workflow_dispatch"
+      ],
+      "jobs": [
+        "repository_dispatch",
+        "workflow_dispatch",
+        "govern"
+      ],
+      "depends_on_scripts": [
+        "scripts/alpha_governor.py"
+      ],
+      "permissions": {
+        "contents": "write",
+        "issues": "write"
+      }
+    },
+    {
+      "name": "Assignment Follow-up",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/assignment-followup.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch"
+      ],
+      "jobs": [
+        "schedule",
+        "workflow_dispatch",
+        "followup"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "AWS Resource Cleanup Scanner",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/aws-cleanup.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch:  # Allow manual trigger"
+      ],
+      "jobs": [
+        "schedule",
+        "scan"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write"
+      }
+    },
+    {
+      "name": "Agent Beta — PR Code Review",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/beta-reviewer.yml",
+      "triggers": [
+        "pull_request",
+        "types: [labeled]"
+      ],
+      "jobs": [
+        "pull_request",
+        "review"
+      ],
+      "depends_on_scripts": [
+        "scripts/beta_reviewer.py"
+      ],
+      "permissions": {
+        "contents": "write",
+        "pull-requests": "write",
+        "issues": "write"
+      }
+    },
+    {
+      "name": "Bot Commands",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/bot-commands.yml",
+      "triggers": [
+        "issue_comment",
+        "types: [created]"
+      ],
+      "jobs": [
+        "issue_comment",
+        "handle-command"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "issues": "write",
+        "pull-requests": "write"
+      }
+    },
+    {
+      "name": "Chaos Engineering / Resilience Validation",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/chaos-engineering.yml",
+      "triggers": [
+        "workflow_dispatch",
+        "inputs",
+        "target_environment",
+        "description: 'Environment to run chaos against'",
+        "required: true",
+        "default: 'staging'",
+        "schedule"
+      ],
+      "jobs": [
+        "workflow_dispatch",
+        "schedule",
+        "chaos-test"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "id-token": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Checkov — Security Scan",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/checkov.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "checkov"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "security-events": "write  # upload SARIF",
+        "steps": "",
+        "- uses": "actions/checkout@v4",
+        "- name": "Upload SARIF to GitHub Security",
+        "uses": "github/codeql-action/upload-sarif@v4",
+        "with": "",
+        "directory": "terraform",
+        "framework": "terraform,helm",
+        "output_format": "sarif",
+        "output_file_path": "reports/checkov.sarif",
+        "soft_fail": "true",
+        "skip_check": "CKV_AWS_149,CKV_AWS_111,CKV_AWS_355",
+        "if": "always()",
+        "sarif_file": "reports/checkov.sarif",
+        "category": "checkov"
+      }
+    },
+    {
+      "name": "Code Coverage",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/codecov.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "paths: ['workloads/**/*.py', 'scripts/**/*.py']",
+        "pull_request",
+        "branches: [main]"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "coverage"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "CodeQL — Security Analysis",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/codeql.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "pull_request",
+        "branches: [main]",
+        "schedule"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "schedule",
+        "analyze"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "actions": "read",
+        "contents": "read",
+        "security-events": "write",
+        "strategy": "",
+        "fail-fast": "false",
+        "matrix": "",
+        "language": "[python]",
+        "steps": "",
+        "- uses": "actions/checkout@v4",
+        "- name": "Perform CodeQL Analysis",
+        "uses": "github/codeql-action/analyze@v4",
+        "with": "",
+        "languages": "${{ matrix.language }}",
+        "queries": "security-and-quality",
+        "category": "\"/language:${{ matrix.language }}\""
+      }
+    },
+    {
+      "name": "Contributor Greeting",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/contributor-greeting.yml",
+      "triggers": [
+        "issues",
+        "types: [opened]",
+        "pull_request_target",
+        "types: [opened]"
+      ],
+      "jobs": [
+        "issues",
+        "pull_request_target",
+        "greet"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write",
+        "pull-requests": "write"
+      }
+    },
+    {
+      "name": "Agent Delta — Issue Executor",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/delta-executor.yml",
+      "triggers": [
+        "issues",
+        "types: [labeled]"
+      ],
+      "jobs": [
+        "issues",
+        "execute"
+      ],
+      "depends_on_scripts": [
+        "scripts/delta_executor.py"
+      ],
+      "permissions": {
+        "contents": "write",
+        "pull-requests": "write",
+        "issues": "write"
+      }
+    },
+    {
+      "name": "Dependency Security Audit",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/dependency-check.yml",
+      "triggers": [
+        "schedule",
+        "push",
+        "branches: [main]",
+        "paths: ['requirements.txt', 'workloads/**/*.py']",
+        "pull_request",
+        "branches: [main]",
+        "paths: ['requirements.txt']"
+      ],
+      "jobs": [
+        "schedule",
+        "push",
+        "pull_request",
+        "audit"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "Diagram Drift Detector",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/diagram-drift.yml",
+      "triggers": [
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "pull_request",
+        "detect"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Draft PR Ready Reminder",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/draft-ready.yml",
+      "triggers": [
+        "pull_request",
+        "types: [ready_for_review]"
+      ],
+      "jobs": [
+        "pull_request",
+        "notify"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "write"
+      }
+    },
+    {
+      "name": "Infrastructure Drift Detection",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/drift-detection.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch:      # Allow manual trigger"
+      ],
+      "jobs": [
+        "schedule",
+        "drift-check"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "issues": "write",
+        "id-token": "write     # Required for OIDC",
+        "steps": "",
+        "- name": "Report Success",
+        "uses": "aws-actions/configure-aws-credentials@v4",
+        "with": "",
+        "terraform_version": "\"~> 1.7.0\"",
+        "role-to-assume": "${{ secrets.AWS_ROLE_ARN }}",
+        "aws-region": "${{ secrets.AWS_REGION }}",
+        "working-directory": "terraform",
+        "run": "echo \"No drift detected. Infrastructure is in sync.\"",
+        "id": "plan",
+        "continue-on-error": "true",
+        "if": "steps.plan.outputs.exit_code == '0'",
+        "env": "",
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+        "GITHUB_REPOSITORY": "${{ github.repository }}"
+      }
+    },
+    {
+      "name": "Agent Gamma — Issue Triage",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/gamma-triage.yml",
+      "triggers": [
+        "issues",
+        "types: [opened, edited]"
+      ],
+      "jobs": [
+        "issues",
+        "triage"
+      ],
+      "depends_on_scripts": [
+        "scripts/gamma_triage.py"
+      ],
+      "permissions": {
+        "issues": "write",
+        "contents": "write   # Needed to commit queue.json and INTERNAL_LOG.md via Contents API"
+      }
+    },
+    {
+      "name": "Gitleaks — Secret Scanning",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/gitleaks.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "pull_request",
+        "branches: [main]"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "scan"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Infracost — Cost Estimate",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/infracost.yml",
+      "triggers": [
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "pull_request",
+        "infracost"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "write  # post PR comment",
+        "steps": "",
+        "- uses": "actions/checkout@v4",
+        "- name": "Post Infracost comment",
+        "uses": "actions/checkout@v4",
+        "with": "",
+        "api-key": "${{ secrets.INFRACOST_API_KEY }}",
+        "ref": "${{ github.event.pull_request.base.ref }}",
+        "path": "base-branch",
+        "run": "|"
+      }
+    },
+    {
+      "name": "Issue Triage Bot",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/issue-triage.yml",
+      "triggers": [
+        "issues",
+        "types: [opened, edited]"
+      ],
+      "jobs": [
+        "issues",
+        "triage"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write"
+      }
+    },
+    {
+      "name": "Kube-score — Helm Chart Analysis",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/kube-score.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "kube-score"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "License Header Check",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/license-header.yml",
+      "triggers": [
+        "pull_request",
+        "branches: [main]",
+        "paths: ['**/*.py', '**/*.tf', '**/*.rego']"
+      ],
+      "jobs": [
+        "pull_request",
+        "check"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Markdown Link Check",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/markdown-links.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch:  # allow manual trigger"
+      ],
+      "jobs": [
+        "schedule",
+        "link-check"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "Cognitive Memory — Incremental Update",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/memory-incremental.yml",
+      "triggers": [
+        "push",
+        "branches",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "incremental-update"
+      ],
+      "depends_on_scripts": [
+        "scripts/repo_ingestion.py",
+        "scripts/embedding_engine.py",
+        "scripts/decision_extractor.py",
+        "scripts/decision_extractor.py",
+        "scripts/validate_memory.py"
+      ],
+      "permissions": {
+        "contents": "write"
+      }
+    },
+    {
+      "name": "Cognitive Memory — Full Rebuild",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/memory.yml",
+      "triggers": [
+        "push",
+        "branches",
+        "paths",
+        "schedule",
+        "workflow_dispatch",
+        "inputs",
+        "force_full_rebuild",
+        "description: \"Force regeneration of all embeddings (ignore hash cache)\"",
+        "required: false",
+        "default: false",
+        "type: boolean"
+      ],
+      "jobs": [
+        "push",
+        "schedule",
+        "workflow_dispatch",
+        "build-memory"
+      ],
+      "depends_on_scripts": [
+        "scripts/repo_ingestion.py",
+        "scripts/decision_extractor.py",
+        "scripts/embedding_engine.py",
+        "scripts/issue_pr_embedder.py",
+        "scripts/validate_memory.py"
+      ],
+      "permissions": {
+        "contents": "write"
+      }
+    },
+    {
+      "name": "PR Changelog Check",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/pr-changelog.yml",
+      "triggers": [
+        "pull_request",
+        "branches: [main]",
+        "types: [opened, synchronize, reopened]"
+      ],
+      "jobs": [
+        "pull_request",
+        "changelog"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "read",
+        "contents": "read",
+        "steps": "",
+        "- uses": "actions/checkout@v4",
+        "- name": "Enforce CHANGELOG update",
+        "uses": "dangoslen/changelog-enforcer@v3",
+        "with": "",
+        "changeLogPath": "CHANGELOG.md",
+        "skipLabels": "'skip-changelog,dependencies,documentation'",
+        "missingUpdateErrorMessage": ">",
+        "Format": "`- <type>: <description> (#<PR number>)`"
+      }
+    },
+    {
+      "name": "PR Lint — Conventional Commits",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/pr-lint.yml",
+      "triggers": [
+        "pull_request_target",
+        "types"
+      ],
+      "jobs": [
+        "pull_request_target",
+        "pr-title"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "pull-requests": "read",
+        "steps": "",
+        "- uses": "amannn/action-semantic-pull-request@v5",
+        "env": "",
+        "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+        "with": "",
+        "types": "|",
+        "# Allow scopes, e.g. feat(eks)": "...",
+        "requireScope": "false",
+        "subjectPattern": "^[A-Z].+$",
+        "subjectPatternError": ">",
+        "The PR title must start with a capital letter after the prefix, e.g.": "",
+        "feat": "Add GPU taint enforcement"
+      }
+    },
+    {
+      "name": "Python Lint — Pylint, Flake8, Mypy",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/python-lint.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "paths",
+        "pull_request",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "lint"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "Ray Local CI — Minikube Validation",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ray-local-ci.yml",
+      "triggers": [
+        "push",
+        "branches: [ \"main\", \"develop\" ]",
+        "paths-ignore",
+        "pull_request",
+        "branches: [ \"main\" ]",
+        "paths-ignore",
+        "workflow_dispatch",
+        "inputs",
+        "ray_version",
+        "description: \"Ray image tag to test against\"",
+        "required: false",
+        "default: \"2.9.3\"",
+        "kuberay_version",
+        "description: \"KubeRay Operator Helm chart version\"",
+        "required: false",
+        "default: \"1.1.1\"",
+        "concurrency",
+        "group: ${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress: true"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "workflow_dispatch",
+        "static-checks",
+        "ray-cluster-validation"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "env": "",
+        "RAY_VERSION": "${{ inputs.ray_version || '2.9.3' }}",
+        "KUBERAY_VERSION": "${{ inputs.kuberay_version || '1.1.1' }}",
+        "RAY_NAMESPACE": "ray-system",
+        "CLUSTER_NAME": "raycluster-ci"
+      }
+    },
+    {
+      "name": "Ray Cluster CI — macOS M1 Runner",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/ray-macos-ci.yml",
+      "triggers": [
+        "push",
+        "branches: [ \"main\", \"develop\" ]",
+        "paths-ignore",
+        "pull_request",
+        "branches: [ \"main\" ]",
+        "workflow_dispatch",
+        "inputs",
+        "ray_version",
+        "description: \"Ray image tag\"",
+        "required: false",
+        "default: \"2.9.3-py310\"",
+        "concurrency",
+        "group: ${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress: true"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "workflow_dispatch",
+        "ray-macos-validation"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "env": "",
+        "RAY_VERSION": "${{ inputs.ray_version || '2.9.3-py310' }}",
+        "RAY_NAMESPACE": "ray-system",
+        "CLUSTER_NAME": "raycluster-ci",
+        "KUBERAY_VERSION": "1.1.1"
+      }
+    },
+    {
+      "name": "Release Drafter",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/release-drafter.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "pull_request",
+        "types: [opened, reopened, synchronize]"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "update-release-draft"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "write"
+      }
+    },
+    {
+      "name": "Stale Issue & PR Bot",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/stale.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch"
+      ],
+      "jobs": [
+        "schedule",
+        "workflow_dispatch",
+        "stale"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write",
+        "pull-requests": "write",
+        "steps": "",
+        "- uses": "actions/stale@v9",
+        "with": "",
+        "days-before-issue-stale": "30",
+        "days-before-issue-close": "7",
+        "stale-issue-label": "'stale'",
+        "stale-issue-message": ">",
+        "close-issue-message": ">",
+        "days-before-pr-stale": "14",
+        "days-before-pr-close": "7",
+        "stale-pr-label": "'stale'",
+        "stale-pr-message": ">",
+        "close-pr-message": ">",
+        "exempt-issue-labels": "'keep-open,pinned,security,in-progress'",
+        "exempt-pr-labels": "'keep-open,pinned,in-progress'",
+        "exempt-all-assignees": "true"
+      }
+    },
+    {
+      "name": "Technical Debt Tracker",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/tech-debt.yml",
+      "triggers": [
+        "schedule",
+        "workflow_dispatch"
+      ],
+      "jobs": [
+        "schedule",
+        "workflow_dispatch",
+        "scan"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "issues": "write",
+        "contents": "read"
+      }
+    },
+    {
+      "name": "Terraform CI",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/terraform-ci.yml",
+      "triggers": [
+        "push",
+        "branches",
+        "pull_request",
+        "branches",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "terraform-validate",
+        "opa-test"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "terraform-docs — Auto-Update README",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/terraform-docs.yml",
+      "triggers": [
+        "push",
+        "branches: [main]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "docs"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {
+        "contents": "write  # auto-commit updated README",
+        "steps": "",
+        "- uses": "actions/checkout@v4",
+        "with": "",
+        "token": "${{ secrets.GITHUB_TOKEN }}",
+        "ref": "${{ github.ref }}",
+        "- name": "Render terraform-docs (examples/complete)",
+        "uses": "terraform-docs/gh-actions@v1",
+        "working-dir": "terraform/examples/complete",
+        "output-file": "README.md",
+        "output-method": "inject",
+        "git-push": "\"true\"",
+        "git-commit-message": "\"docs: auto-update examples/complete terraform-docs [skip ci]\""
+      }
+    },
+    {
+      "name": "TFLint",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/tflint.yml",
+      "triggers": [
+        "push",
+        "branches: [ main ]",
+        "pull_request",
+        "branches: [ main ]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "tflint"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "TFSec",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/tfsec.yml",
+      "triggers": [
+        "push",
+        "branches: [ main ]",
+        "pull_request",
+        "branches: [ main ]",
+        "paths"
+      ],
+      "jobs": [
+        "push",
+        "pull_request",
+        "tfsec"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    },
+    {
+      "name": "Validate Cluster Identity",
+      "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/.github/workflows/validate-cluster.yml",
+      "triggers": [
+        "workflow_dispatch",
+        "pull_request",
+        "paths"
+      ],
+      "jobs": [
+        "workflow_dispatch",
+        "pull_request",
+        "validate"
+      ],
+      "depends_on_scripts": [],
+      "permissions": {}
+    }
+  ],
+  "failure_history": []
+}

@@ -1,0 +1,273 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-02-27T19:18:44Z",
+  "terraform": {
+    "resources": [
+      {
+        "type": "aws_s3_bucket",
+        "name": "velero_backups",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_s3_bucket_versioning",
+        "name": "velero_backups",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_kms_key",
+        "name": "velero",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_kms_alias",
+        "name": "velero",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_s3_bucket_server_side_encryption_configuration",
+        "name": "velero_backups",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_s3_bucket_public_access_block",
+        "name": "velero_backups",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role",
+        "name": "velero_irsa",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy",
+        "name": "velero_irsa_inline",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "helm_release",
+        "name": "velero",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/velero.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_security_group",
+        "name": "node",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_security_group_rule",
+        "name": "node_ingress_self",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role",
+        "name": "cluster",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "cluster_AmazonEKSClusterPolicy",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "cluster_AmazonEKSVPCResourceController",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_cloudwatch_log_group",
+        "name": "cluster",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_kms_key",
+        "name": "eks",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_kms_alias",
+        "name": "eks",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_eks_cluster",
+        "name": "main",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_openid_connect_provider",
+        "name": "cluster_managed",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_openid_connect_provider",
+        "name": "cluster_unmanaged",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role",
+        "name": "node",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "node_AmazonEKSWorkerNodePolicy",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "node_AmazonEKS_CNI_Policy",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "node_AmazonEC2ContainerRegistryReadOnly",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_policy",
+        "name": "ebs_csi",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "node_ebs_csi",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_eks_addon",
+        "name": "addons",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/main.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_eks_node_group",
+        "name": "cpu_workers",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_launch_template",
+        "name": "cpu_workers",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_eks_node_group",
+        "name": "gpu_workers",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_launch_template",
+        "name": "gpu_workers",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_policy",
+        "name": "cluster_autoscaler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role",
+        "name": "cluster_autoscaler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "cluster_autoscaler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role",
+        "name": "node_termination_handler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_iam_role_policy_attachment",
+        "name": "node_termination_handler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "aws_autoscaling_lifecycle_hook",
+        "name": "ray_graceful_drain",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/node_pools.tf",
+        "depends_on": []
+      },
+      {
+        "type": "helm_release",
+        "name": "cluster_autoscaler",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/examples/complete/helm.tf",
+        "depends_on": []
+      },
+      {
+        "type": "helm_release",
+        "name": "kuberay_operator",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/examples/complete/helm.tf",
+        "depends_on": []
+      }
+    ],
+    "modules": [
+      {
+        "name": "vpc",
+        "source": "terraform-aws-modules/vpc/aws",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/examples/complete/main.tf"
+      },
+      {
+        "name": "ray_eks_cluster",
+        "source": "../..",
+        "file": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/terraform/examples/complete/main.tf"
+      }
+    ],
+    "providers": [
+      "registry.terraform.io/hashicorp/aws",
+      "registry.terraform.io/hashicorp/helm",
+      "registry.terraform.io/hashicorp/kubernetes",
+      "registry.terraform.io/hashicorp/tls",
+      "helm",
+      "aws",
+      "kubernetes"
+    ]
+  },
+  "helm": {
+    "charts": [
+      {
+        "name": "ray-cluster",
+        "path": "/Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform/helm/ray",
+        "version": "1.0.0",
+        "dependencies": []
+      }
+    ]
+  }
+}

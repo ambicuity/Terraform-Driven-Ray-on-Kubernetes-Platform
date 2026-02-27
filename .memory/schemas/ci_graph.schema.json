@@ -1,0 +1,92 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "CIGraph",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "generated_at",
+        "workflows",
+        "failure_history"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0"
+            ]
+        },
+        "generated_at": {
+            "type": "string"
+        },
+        "workflows": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "path",
+                    "triggers",
+                    "jobs"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "triggers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "jobs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "depends_on_scripts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "permissions": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "failure_history": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "workflow",
+                    "timestamp",
+                    "reason"
+                ],
+                "properties": {
+                    "workflow": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "run_id": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "additionalProperties": false
+}

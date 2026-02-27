@@ -1,0 +1,71 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "DecisionLog",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "decisions"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0"
+            ]
+        },
+        "decisions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "decision_id",
+                    "type",
+                    "context",
+                    "source",
+                    "timestamp",
+                    "related_files"
+                ],
+                "properties": {
+                    "decision_id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "ARCH_DECISION",
+                            "SECURITY_BOUNDARY",
+                            "PERFORMANCE_CONSTRAINT",
+                            "PR_DECISION",
+                            "ADR"
+                        ]
+                    },
+                    "context": {
+                        "type": "string"
+                    },
+                    "rationale": {
+                        "type": "string"
+                    },
+                    "tradeoffs": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string"
+                    },
+                    "related_files": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "pr_number": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    },
+    "additionalProperties": false
+}

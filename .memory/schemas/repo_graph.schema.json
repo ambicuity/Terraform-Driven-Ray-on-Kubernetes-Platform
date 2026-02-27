@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RepoGraph",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "generated_at",
+        "nodes",
+        "edges",
+        "metrics"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0"
+            ]
+        },
+        "generated_at": {
+            "type": "string"
+        },
+        "nodes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "path",
+                    "type",
+                    "size_bytes",
+                    "hash"
+                ],
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "python",
+                            "terraform",
+                            "helm",
+                            "rego",
+                            "yaml",
+                            "markdown",
+                            "json",
+                            "shell",
+                            "other"
+                        ]
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "hash": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "edges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "from",
+                    "to",
+                    "relation"
+                ],
+                "properties": {
+                    "from": {
+                        "type": "string"
+                    },
+                    "to": {
+                        "type": "string"
+                    },
+                    "relation": {
+                        "type": "string",
+                        "enum": [
+                            "imports",
+                            "calls",
+                            "references",
+                            "configures",
+                            "deploys",
+                            "tests",
+                            "documents"
+                        ]
+                    }
+                }
+            }
+        },
+        "metrics": {
+            "type": "object",
+            "required": [
+                "total_files",
+                "python_files",
+                "terraform_files"
+            ],
+            "properties": {
+                "total_files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "python_files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "terraform_files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "helm_files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "markdown_files": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        }
+    },
+    "additionalProperties": false
+}

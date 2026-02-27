@@ -1,0 +1,165 @@
+name: Cognitive Memory — Full Rebuild
+
+# Builds and validates all cognitive memory artifacts for AI agents.
+# Triggers: push to main (to keep memory current) and weekly schedule (for
+# issue/PR embeddings that accumulate over time).
+#
+# Memory artifacts are committed back to main with [skip ci] to prevent loops.
+# All CI steps must pass validate_memory.py before any commit is attempted.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - 'terraform/**'
+      - 'helm/**'
+      - 'policies/**'
+      - 'docs/**'
+      - '.github/workflows/**'
+  schedule:
+    # Weekly full rebuild every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      force_full_rebuild:
+        description: "Force regeneration of all embeddings (ignore hash cache)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-memory:
+    name: Build and Validate Memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Full history needed for structural analysis
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Cache pip packages separately from model weights
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: memory-pip-${{ runner.os }}-${{ hashFiles('**/requirements-memory.txt') }}
+          restore-keys: memory-pip-${{ runner.os }}-
+
+      # Cache the sentence-transformers model weights (~130 MB)
+      # Key is the model name — invalidated only on model upgrade
+      - name: Cache embedding model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: memory-model-bge-small-en-v1.5-${{ runner.os }}
+
+      - name: Install memory build dependencies
+        run: |
+          pip install --quiet \
+            sentence-transformers==2.7.0 \
+            torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu \
+            torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+          echo "sentence-transformers installed."
+
+      - name: Pre-download and cache model (if cache miss)
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "
+          from sentence_transformers import SentenceTransformer
+          model = SentenceTransformer('BAAI/bge-small-en-v1.5')
+          print(f'Model dimension: {model.get_sentence_embedding_dimension()}')
+          print('Model cached successfully.')
+          "
+
+      - name: Create memory directory structure
+        run: |
+          mkdir -p .memory/embeddings .memory/schemas
+
+      # --- Structural ingestion (stdlib-only, fast) ---
+      - name: Run repo structural ingestion
+        run: |
+          python scripts/repo_ingestion.py \
+            --repo-root . \
+            --output-dir .memory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # --- Decision extraction (stdlib-only, fast) ---
+      - name: Run decision extractor
+        run: |
+          python scripts/decision_extractor.py \
+            --repo-root . \
+            --output-dir .memory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Code and doc embedding (sentence-transformers, incremental) ---
+      - name: Run embedding engine (file + doc embeddings)
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force_full_rebuild }}" = "true" ]; then
+            # Clear existing embeddings to force full regeneration
+            rm -f .memory/embeddings/file_embeddings.json .memory/embeddings/doc_embeddings.json
+            echo "Force rebuild: cleared existing file/doc embeddings."
+          fi
+          python scripts/embedding_engine.py \
+            --repo-root . \
+            --output-dir .memory/embeddings
+        env:
+          MEMORY_MODEL_PATH: ~/.cache/huggingface/hub/models--BAAI--bge-small-en-v1.5/snapshots
+
+      # --- Issue and PR embedding (requires GitHub API + sentence-transformers) ---
+      - name: Run issue and PR embedder
+        run: |
+          python scripts/issue_pr_embedder.py \
+            --output-dir .memory/embeddings \
+            --max-issues 500 \
+            --max-prs 500
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MEMORY_MODEL_PATH: ~/.cache/huggingface/hub/models--BAAI--bge-small-en-v1.5/snapshots
+
+      # --- Validation gate (must pass before any commit) ---
+      - name: Validate all memory artifacts
+        run: |
+          python scripts/validate_memory.py \
+            --memory-dir .memory \
+            --repo-root .
+
+      # --- Commit updated memory artifacts to main ---
+      - name: Commit memory artifacts
+        run: |
+          git config user.name  "memory-builder[bot]"
+          git config user.email "memory-builder[bot]@users.noreply.github.com"
+          git add .memory/
+          # Only commit if there are actual changes (avoid empty commits)
+          if git diff --cached --quiet; then
+            echo "No memory changes to commit."
+          else
+            CHANGED=$(git diff --cached --name-only | wc -l)
+            git commit -m "chore(memory): rebuild cognitive memory artifacts [skip ci]
+
+            Changed files: ${CHANGED}
+            Trigger: ${{ github.event_name }}
+            Run: ${{ github.run_id }}"
+            git push origin main
+            echo "Memory artifacts committed and pushed."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

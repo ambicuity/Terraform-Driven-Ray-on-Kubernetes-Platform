@@ -1,0 +1,125 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InfraGraph",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "generated_at",
+        "terraform",
+        "helm"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0"
+            ]
+        },
+        "generated_at": {
+            "type": "string"
+        },
+        "terraform": {
+            "type": "object",
+            "required": [
+                "resources",
+                "modules",
+                "providers"
+            ],
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "type",
+                            "name",
+                            "file"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "file": {
+                                "type": "string"
+                            },
+                            "depends_on": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "name",
+                            "source",
+                            "file"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "source": {
+                                "type": "string"
+                            },
+                            "file": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "helm": {
+            "type": "object",
+            "required": [
+                "charts"
+            ],
+            "properties": {
+                "charts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "name",
+                            "path",
+                            "version"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "path": {
+                                "type": "string"
+                            },
+                            "version": {
+                                "type": "string"
+                            },
+                            "dependencies": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "additionalProperties": false
+}

@@ -1,0 +1,171 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecutionLog",
+    "description": "Cognitive memory of agent execution outcomes. Each run records what the agent retrieved, what it decided, the actions taken, and the outcome. This transforms repository memory into a cognitive feedback loop: agents learn from their own history.",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "runs"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "enum": [
+                "1.0"
+            ]
+        },
+        "runs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "run_id",
+                    "agent",
+                    "trigger",
+                    "input_hash",
+                    "retrieved_context_ids",
+                    "decision_summary",
+                    "actions_taken",
+                    "outcome",
+                    "timestamp"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                    "run_id": {
+                        "type": "string",
+                        "description": "Deterministic ID: {agent_lower}-{timestamp}",
+                        "pattern": "^[a-z]+-\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "enum": [
+                            "Alpha",
+                            "Beta",
+                            "Delta",
+                            "Gamma",
+                            "ai_issue_solver",
+                            "ai_test_engineer",
+                            "ai_duplicate_detector"
+                        ]
+                    },
+                    "trigger": {
+                        "type": "object",
+                        "required": [
+                            "event_type",
+                            "source_ref"
+                        ],
+                        "properties": {
+                            "event_type": {
+                                "type": "string",
+                                "enum": [
+                                    "issue_labeled",
+                                    "pr_opened",
+                                    "pr_merged",
+                                    "schedule",
+                                    "workflow_dispatch"
+                                ]
+                            },
+                            "source_ref": {
+                                "type": "string",
+                                "description": "issue/{num}, pr/{num}, or 'scheduled'"
+                            }
+                        }
+                    },
+                    "input_hash": {
+                        "type": "string",
+                        "description": "SHA-256 of the primary input (issue body + labels) for deduplication",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "retrieved_context_ids": {
+                        "type": "array",
+                        "description": "IDs of memory items used in reasoning: file:path, decision:ID, issue:num, pr:num",
+                        "items": {
+                            "type": "string"
+                        },
+                        "maxItems": 50
+                    },
+                    "decision_summary": {
+                        "type": "string",
+                        "description": "One or two sentences describing the reasoning conclusion",
+                        "maxLength": 500
+                    },
+                    "actions_taken": {
+                        "type": "array",
+                        "description": "Ordered list of side-effects the agent produced",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "label_added",
+                                "label_removed",
+                                "label_swap",
+                                "comment_posted",
+                                "pr_opened",
+                                "pr_merged",
+                                "branch_created",
+                                "code_committed",
+                                "issue_closed",
+                                "issue_assigned",
+                                "duplicate_marked",
+                                "no_op"
+                            ]
+                        }
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": [
+                            "success",
+                            "failure",
+                            "partial",
+                            "skipped"
+                        ]
+                    },
+                    "failure_reason": {
+                        "type": "string",
+                        "description": "Only set when outcome == 'failure'. Short description of the failure.",
+                        "maxLength": 300
+                    },
+                    "ci_status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "green",
+                            "red",
+                            "skipped",
+                            null
+                        ],
+                        "description": "CI status for the PR this run produced, null if no PR was opened"
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Wall-clock duration of the agent execution in milliseconds"
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                        "description": "Agent self-reported confidence scalar (0 = uncertain, 1 = certain)"
+                    },
+                    "retry_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 0,
+                        "description": "Number of retries before this outcome"
+                    },
+                    "context_retrieval_ms": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Time spent in memory_retriever.top_k calls, milliseconds"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                    }
+                }
+            }
+        }
+    }
+}

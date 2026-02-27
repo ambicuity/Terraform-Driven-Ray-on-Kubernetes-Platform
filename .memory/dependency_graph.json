@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-02-27T19:18:44Z",
+  "dependencies": [
+    {
+      "source": "tests/test_decision_extractor.py",
+      "target": "scripts/decision_extractor.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_delta.py",
+      "target": "scripts/delta_executor.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_alpha.py",
+      "target": "scripts/alpha_governor.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_gh_utils.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_validate_memory.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_validate_memory.py",
+      "target": "scripts/validate_memory.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_beta.py",
+      "target": "scripts/beta_reviewer.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_gamma.py",
+      "target": "scripts/gamma_triage.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_repo_ingestion.py",
+      "target": "scripts/repo_ingestion.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_memory_retriever.py",
+      "target": "scripts/memory_retriever.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "tests/test_memory_retriever.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/beta_reviewer.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/ai_duplicate_detector.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/repo_ingestion.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/ai_test_engineer.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/ai_issue_solver.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/agent_context_builder.py",
+      "target": "scripts/memory_retriever.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/agent_context_builder.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/gamma_triage.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/alpha_governor.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/issue_pr_embedder.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/decision_extractor.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/validate_memory.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/embedding_engine.py",
+      "target": "scripts/memory_schemas.py",
+      "type": "direct_import",
+      "depth": 1
+    },
+    {
+      "source": "scripts/delta_executor.py",
+      "target": "scripts/gh_utils.py",
+      "type": "direct_import",
+      "depth": 1
+    }
+  ]
+}

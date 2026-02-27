@@ -1,0 +1,164 @@
+name: Cognitive Memory — Incremental Update
+
+# Incremental memory update triggered on every push to main.
+# Unlike memory.yml (full rebuild), this workflow:
+#   1. Detects which files changed in the most recent commit
+#   2. Re-embeds only changed files (typically < 30 seconds)
+#   3. Appends decision memory if the commit message or PR body contains
+#      ARCH_DECISION / SECURITY_BOUNDARY / PERFORMANCE_CONSTRAINT tags
+#   4. Validates artifacts and commits
+#
+# This workflow is designed to run in < 5 minutes for typical PR merges.
+# The full rebuild (memory.yml) runs on Sundays to catch any drift.
+
+on:
+  push:
+    branches:
+      - main
+    # Only trigger when substantive source files change
+    paths:
+      - 'scripts/**/*.py'
+      - 'terraform/**/*.tf'
+      - 'helm/**'
+      - 'policies/**/*.rego'
+      - 'docs/**/*.md'
+
+permissions:
+  contents: write
+
+jobs:
+  incremental-update:
+    name: Memory — Incremental Embed
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Skip if this is a memory commit (avoid infinite loop)
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2  # Need HEAD and HEAD~1 for diff
+
+      - name: Detect changed files
+        id: changed
+        run: |
+          # Get changed files relative to previous commit
+          CHANGED=$(git diff HEAD~1 --name-only 2>/dev/null || echo "")
+          echo "Changed files:"
+          echo "$CHANGED"
+          # Write to a file for the embedding step
+          echo "$CHANGED" > /tmp/changed_files.txt
+          # Export for conditional steps
+          echo "has_changes=$([ -n "$CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "changed_list=$(echo "$CHANGED" | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Set up Python 3.11
+        if: steps.changed.outputs.has_changes == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Restore model cache
+        if: steps.changed.outputs.has_changes == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: memory-model-bge-small-en-v1.5-${{ runner.os }}
+          # No restore-keys — if model isn't cached, download it
+          fail-on-cache-miss: false
+
+      - name: Install dependencies (if model cache hit, this is fast)
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          pip install --quiet \
+            sentence-transformers==2.7.0 \
+            torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu \
+            torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Create memory directory structure
+        if: steps.changed.outputs.has_changes == 'true'
+        run: mkdir -p .memory/embeddings .memory/schemas
+
+      # Re-run structural ingestion (fast, stdlib-only)
+      - name: Re-run structural ingestion
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          python scripts/repo_ingestion.py \
+            --repo-root . \
+            --output-dir .memory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # Incremental embedding — pass changed file list
+      - name: Incremental embedding (changed files only)
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          CHANGED_ARGS=""
+          while IFS= read -r line; do
+            [ -n "$line" ] && CHANGED_ARGS="$CHANGED_ARGS $line"
+          done < /tmp/changed_files.txt
+
+          if [ -n "$CHANGED_ARGS" ]; then
+            python scripts/embedding_engine.py \
+              --repo-root . \
+              --output-dir .memory/embeddings \
+              --changed-files $CHANGED_ARGS
+          else
+            echo "No changed files to embed."
+          fi
+        env:
+          MEMORY_MODEL_PATH: ~/.cache/huggingface/hub/models--BAAI--bge-small-en-v1.5/snapshots
+
+      # Append decision memory if commit/PR body contains decision tags
+      - name: Append decision memory (if PR has decision tags)
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          # Extract PR number from merge commit message (format: "Merge pull request #NNN")
+          PR_NUM=$(git log HEAD~1..HEAD --format="%s" | grep -oP '(?<=#)\d+' | head -1 || echo "0")
+          PR_BODY=$(git log HEAD~1..HEAD --format="%b" | head -50 || echo "")
+
+          if echo "$PR_BODY" | grep -qE "ARCH_DECISION:|SECURITY_BOUNDARY:|PERFORMANCE_CONSTRAINT:"; then
+            echo "Decision tags found in commit body. Extracting..."
+            python scripts/decision_extractor.py \
+              --repo-root . \
+              --output-dir .memory \
+              --pr-number "${PR_NUM}" \
+              --pr-body "${PR_BODY}"
+          else
+            echo "No decision tags in commit body — running standard decision scan."
+            python scripts/decision_extractor.py \
+              --repo-root . \
+              --output-dir .memory
+          fi
+
+      # Validation gate — must pass before commit
+      - name: Validate memory artifacts
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          python scripts/validate_memory.py \
+            --memory-dir .memory \
+            --repo-root .
+
+      # Commit incremental changes
+      - name: Commit incremental memory updates
+        if: steps.changed.outputs.has_changes == 'true'
+        run: |
+          git config user.name  "memory-builder[bot]"
+          git config user.email "memory-builder[bot]@users.noreply.github.com"
+          git add .memory/
+          if git diff --cached --quiet; then
+            echo "No memory changes to commit."
+          else
+            CHANGED_COUNT=$(git diff --cached --name-only | wc -l)
+            git commit -m "chore(memory): incremental update — ${CHANGED_COUNT} artifact(s) [skip ci]
+
+            Trigger: push to main ($(git log HEAD --format='%h' -1))
+            Changed source files: ${{ steps.changed.outputs.changed_list }}"
+            git push origin main
+            echo "Incremental memory update committed."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
