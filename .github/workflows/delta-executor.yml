@@ -9,6 +9,10 @@ on:
   issues:
     types: [labeled]
 
+concurrency:
+  group: delta-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write

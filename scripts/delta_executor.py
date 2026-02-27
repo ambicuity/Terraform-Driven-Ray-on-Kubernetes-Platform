@@ -20,6 +20,8 @@ Environment variables required:
   GEMINI_API_KEY, GITHUB_TOKEN, ISSUE_NUMBER, GITHUB_REPOSITORY
 """
 
+import logging
+import os
 import sys
 import time
 
@@ -31,6 +33,8 @@ from gh_utils import (
     compile_check,
     require_env,
 )
+
+logger = logging.getLogger("delta_executor")
 
 # ---------------------------------------------------------------------------
 # Allowed top-level imports in generated code (defence-in-depth alongside py_compile)
@@ -113,6 +117,9 @@ Implement a fix for the GitHub issue described in the Technical Brief below.
 
 # Repository File Tree (partial)
 {repo_tree}
+
+# Memory Context (relevant existing code, architectural decisions)
+{memory_context}
 """
 
 TEST_PROMPT = """\
@@ -239,6 +246,58 @@ def extract_code(text: str) -> str:
     return text.strip() + "\n"
 
 
+def _build_memory_context(brief: str, title: str) -> str:
+    """
+    Query the cognitive memory layer for context relevant to the issue.
+    Returns a formatted string for prompt injection, or a fallback message
+    if the memory layer is unavailable.
+    """
+    try:
+        from agent_context_builder import build_context
+    except ImportError:
+        logger.warning("agent_context_builder not available — skipping memory context.")
+        return "(Memory layer unavailable — no existing code context.)"
+
+    memory_dir = ".memory"
+    if not os.path.isdir(memory_dir):
+        logger.warning(".memory/ directory not found — skipping memory context.")
+        return "(Memory layer unavailable — .memory/ directory not found.)"
+
+    try:
+        query = f"{title} {brief}"
+        bundle = build_context(
+            query=query,
+            query_embedding=None,  # no embedding model in Delta CI env
+            memory_dir=memory_dir,
+            top_k=5,
+        )
+
+        sections = []
+
+        # Structural context (module boundaries, component info)
+        if bundle.structural_context:
+            sections.append("## Structural Context (from .memory/)")
+            import json as _json
+            sections.append(_json.dumps(bundle.structural_context, indent=2)[:2000])
+
+        # Historical decisions
+        if bundle.historical_decisions:
+            sections.append("## Relevant Architectural Decisions")
+            for dec in bundle.historical_decisions[:3]:
+                sections.append(
+                    f"- [{dec.get('type', 'UNKNOWN')}] {dec.get('summary', dec.get('context', '')[:150])}"
+                )
+
+        if not sections:
+            return "(Memory layer queried but no relevant context found.)"
+
+        return "\n".join(sections)
+
+    except Exception as exc:
+        logger.warning("Memory context build failed: %s", exc)
+        return f"(Memory context build failed: {exc})"
+
+
 def main() -> None:
     env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "ISSUE_NUMBER", "GITHUB_REPOSITORY")
     gh = GithubClient(env["GITHUB_TOKEN"], env["GITHUB_REPOSITORY"])
@@ -278,10 +337,17 @@ def main() -> None:
     body = (issue.get("body", "") or "")[:3000]
 
     # ------------------------------------------------------------------ #
+    # STEP 2b: Assemble memory context (structural + decisions)
+    # ------------------------------------------------------------------ #
+    memory_context = _build_memory_context(brief, title)
+    print(f"[Delta] Memory context: {len(memory_context)} chars")
+
+    # ------------------------------------------------------------------ #
     # STEP 3: Generate implementation (up to 3 self-correction iterations)
     # ------------------------------------------------------------------ #
     impl_prompt = IMPLEMENTATION_PROMPT.format(
-        brief=brief, title=title, body=body, repo_tree=repo_tree
+        brief=brief, title=title, body=body, repo_tree=repo_tree,
+        memory_context=memory_context,
     )
     solution_code = gemini.generate(impl_prompt, max_tokens=4096)
     solution_code = extract_code(solution_code)
@@ -303,7 +369,7 @@ def main() -> None:
 
     passed = False
     feedback = ""
-    for attempt in range(10):
+    for attempt in range(3):
         passed, feedback = preflight(solution_code, gemini)
         if passed:
             break
@@ -318,8 +384,8 @@ def main() -> None:
         solution_code = extract_code(solution_code)
 
     if not passed:
-        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 10 iterations — aborting", "Failed", feedback[:200])
-        print("[Delta] ❌ Pre-flight failed after 10 iterations. Refusing to commit mock code.", file=sys.stderr)
+        gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 3 iterations — aborting", "Failed", feedback[:200])
+        print("[Delta] ❌ Pre-flight failed after 3 iterations. Refusing to commit mock code.", file=sys.stderr)
         sys.exit(1)
 
     # ------------------------------------------------------------------ #

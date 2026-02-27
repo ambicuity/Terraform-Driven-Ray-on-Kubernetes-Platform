@@ -11,6 +11,10 @@ on:
   # Allow manual trigger for testing the governance cycle
   workflow_dispatch:
 
+concurrency:
+  group: alpha-governance
+  cancel-in-progress: false  # let governance complete if already running
+
 permissions:
   contents: write
   issues: write

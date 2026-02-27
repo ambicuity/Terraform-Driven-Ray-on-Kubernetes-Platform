@@ -26,6 +26,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: memory-build
+  cancel-in-progress: true
+
 jobs:
   incremental-update:
     name: Memory — Incremental Embed

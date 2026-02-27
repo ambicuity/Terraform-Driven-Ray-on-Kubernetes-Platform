@@ -7,7 +7,11 @@ name: Agent Gamma — Issue Triage
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened]
+
+concurrency:
+  group: gamma-${{ github.event.issue.number }}
+  cancel-in-progress: true
 
 permissions:
   issues: write

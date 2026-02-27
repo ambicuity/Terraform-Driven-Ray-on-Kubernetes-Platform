@@ -2,7 +2,7 @@ name: Issue Triage Bot
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened]
 
 permissions:
   issues: write

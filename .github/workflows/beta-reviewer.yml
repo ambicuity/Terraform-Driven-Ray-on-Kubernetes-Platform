@@ -12,6 +12,10 @@ on:
     # exists, so the if-guard below would always evaluate to false.
     types: [labeled]
 
+concurrency:
+  group: beta-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
