@@ -12,6 +12,7 @@ Thank you for your interest in contributing to the **Terraform-Driven Ray on Kub
     *   Validate YAML syntax for GitHub Actions and Terraform configurations.
     *   Run local tests if applicable.
 5.  **Submit a Pull Request:** Submit your PR against the `main` branch. Provide a clear description of your changes.
+6.  **Review your PR with Gemini Code Assist:** This repository uses Gemini Code Assist on GitHub for code reviews. In your PR comment thread, you can use the commands `/gemini summary` to get an instant summary, and `/gemini review` to get a deep code review of your changes.
 
 ## Code of Conduct
 

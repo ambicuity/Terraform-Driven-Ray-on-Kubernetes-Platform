@@ -1,0 +1,64 @@
+name: Intermediate Issue
+description: Tasks for contributors familiar with the codebase.
+title: "[Intermediate]: "
+labels: ["intermediate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧩 Intermediate Contributors
+        This issue is intended for contributors who already have some familiarity with the Terraform-Driven Ray on Kubernetes Platform codebase and contribution workflow.
+        
+        **You should feel comfortable:**
+        - Navigating existing source code and examples
+        - Understanding EKS/Terraform/Ray concepts without step-by-step guidance
+        - Following the standard PR workflow without additional onboarding
+        
+        If this is your very first contribution to the project, we recommend starting with a few Good First or Beginner Issues before working on this one.
+
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: 🐞 Problem Description
+      description: Describe the current problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-solution
+    attributes:
+      label: 💡 Expected Solution
+      description: The proposed solution.
+    validations:
+      required: true
+      
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: 🧠 Implementation Notes
+      description: Provide guidance on implementation decisions.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acceptance-criteria
+    attributes:
+      label: ✅ Acceptance Criteria
+      description: To merge this issue, the pull request must
+      options:
+        - label: Fully address the problem described above
+          required: true
+        - label: Follow existing project conventions and patterns
+          required: true
+        - label: Include tests or example updates where appropriate
+          required: true
+        - label: Pass all CI checks
+          required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📚 Additional Context or Resources
+      description: Any other context or links.
+    validations:
+      required: false

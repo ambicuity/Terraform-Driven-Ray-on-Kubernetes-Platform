@@ -1,0 +1,72 @@
+name: Good First Issue
+description: A guided, well-scoped task intended for new contributors.
+title: "[Good First Issue]: "
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🆕🐥 Newcomer Friendly
+        This Good First Issue is a guided, well-scoped task intended for new contributors to the Terraform-Driven Ray on Kubernetes Platform.
+        
+        **What you’ll do:**
+        ✅ Understand how the repository is structured
+        ✅ Practice the standard contribution workflow
+        ✅ Submit and merge a pull request
+        
+        **Important:**
+        - This issue does not require prior domain knowledge.
+        - Basic Python, Terraform, and Git are sufficient.
+        
+        **Support:**
+        A maintainer actively monitors this issue and will help guide it to completion.
+        
+        ⏱️ Typical time to complete: 30–90 minutes (once setup is done)
+        🧩 Difficulty: Small, well-contained change
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: 👾 Issue description
+      description: Provide a clear and descriptive explanation of the task.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe the changes necessary to fix the issue.
+    validations:
+      required: true
+      
+  - type: textarea
+    id: implementation-steps
+    attributes:
+      label: 🛠️ Implementation Steps
+      description: Detailed, step-by-step instructions.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 📋 Step-by-Step Setup Guide
+        - Review the [Contributing Guide](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/blob/main/CONTRIBUTING.md)
+        - Ensure any new Python automation scripts conform to PEP8.
+        - Validate YAML syntax for GitHub Actions and Terraform configurations.
+
+  - type: checkboxes
+    id: acceptance-criteria
+    attributes:
+      label: ✅ Acceptance criteria
+      description: To be able to close this issue, the following criteria must be met
+      options:
+        - label: The issue is solved: I’ve carefully read and implemented the issue requirements
+          required: true
+        - label: I did not add extra changes: I did not modify anything beyond what is described in the issue
+          required: true
+        - label: Behavior: All other existing features continue to work as before
+          required: true
+        - label: Checks and feedback: All checks pass and any requested changes have been made
+          required: true
