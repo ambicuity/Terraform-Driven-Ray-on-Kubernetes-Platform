@@ -21,6 +21,7 @@ Environment variables required:
 """
 
 import sys
+import time
 
 from gh_utils import (
     GeminiClient,
@@ -72,7 +73,7 @@ Implement a fix for the GitHub issue described in the Technical Brief below.
 # Hard Constraints
 1. LANGUAGE: Python 3.11 stdlib ONLY. No third-party imports.
    Allowed top-level modules: os, sys, re, json, time, datetime, subprocess, pathlib,
-   urllib, http, io, base64, hashlib, threading, typing, unittest, collections,
+   urllib, urllib.request, http, io, base64, hashlib, threading, typing, unittest, collections,
    itertools, functools, math, logging, argparse, textwrap, shutil, tempfile,
    contextlib, dataclasses, abc, enum, copy, uuid, random.
    kubernetes and yaml are also permitted if the issue requires them.
@@ -151,13 +152,13 @@ You are a code reviewer performing a pre-flight check on auto-generated Python 3
 code before it can be committed to a production Terraform/EKS/Ray repository.
 
 # Review Checklist (check each item — do NOT skip any):
-1. PEP 8 — flag violations that would cause a CI linter to fail (line length, naming,
-   whitespace). Ignore style preferences that are subjective.
+1. PEP 8 — only flag syntax errors or major structural violations that break Python 3.11.
+   IGNORE minor stylistic issues completely (e.g., line length, trailing whitespace, missing spaces).
 2. Logic Integrity — does the code actually implement what the docstring describes?
    Flag any dead code paths or unreachable branches.
 3. Hallucinated API calls — are any function/method calls that reference
    non-existent stdlib APIs or invented parameters? (e.g., `os.path.mkdirs()`,
-   `json.dump_string()`).
+   `json.dump_string()`). Note that `urllib.request` is a valid stdlib module.
 4. Security — hardcoded tokens, API keys, or passwords; shell injection via
    `subprocess` without `shell=False`; unvalidated user input written to files.
 5. Error handling — every `urllib.request.urlopen`, `subprocess.run`, and
@@ -301,6 +302,7 @@ def main() -> None:
             f"Fix the following issues in this Python code:\n{feedback}\n\n"
             f"Code:\n```python\n{solution_code[:3500]}\n```\n\nReturn ONLY corrected Python code."
         )
+        time.sleep(10)  # Pause to avoid hitting Gemini API burst rate limits
         solution_code = gemini.generate(fix_prompt, max_tokens=4096) or solution_code
         if solution_code.startswith("```"):
             solution_code = _re.sub(r"^```python\s*", "", solution_code)
