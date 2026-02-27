@@ -226,6 +226,19 @@ def select_issue(queue: dict, issue_number: str) -> dict | None:
     return queue["queued"][0] if queue.get("queued") else None
 
 
+def extract_code(text: str) -> str:
+    m = _re.search(r"```python\n(.*?)```", text, _re.DOTALL | _re.IGNORECASE)
+    if m:
+        return m.group(1).strip() + "\n"
+    m = _re.search(r"```\w*\n(.*?)```", text, _re.DOTALL)
+    if m:
+        return m.group(1).strip() + "\n"
+    # Fallback
+    text = _re.sub(r"^```\w*\s*", "", text.strip())
+    text = _re.sub(r"\s*```$", "", text)
+    return text.strip() + "\n"
+
+
 def main() -> None:
     env = require_env("GEMINI_API_KEY", "GITHUB_TOKEN", "ISSUE_NUMBER", "GITHUB_REPOSITORY")
     gh = GithubClient(env["GITHUB_TOKEN"], env["GITHUB_REPOSITORY"])
@@ -271,12 +284,9 @@ def main() -> None:
         brief=brief, title=title, body=body, repo_tree=repo_tree
     )
     solution_code = gemini.generate(impl_prompt, max_tokens=4096)
-    if solution_code.startswith("```"):
-        solution_code = _re.sub(r"^```python\s*", "", solution_code)
-        solution_code = _re.sub(r"^```\w*\s*", "", solution_code)
-        solution_code = _re.sub(r"\s*```$", "", solution_code)
+    solution_code = extract_code(solution_code)
         
-    if not solution_code:
+    if not solution_code.strip():
         gh.append_log(
             "Delta", f"#{issue_num}",
             "Gemini API failed — aborting (no mock code)",
@@ -305,10 +315,7 @@ def main() -> None:
         )
         time.sleep(10)  # Pause to avoid hitting Gemini API burst rate limits
         solution_code = gemini.generate(fix_prompt, max_tokens=4096) or solution_code
-        if solution_code.startswith("```"):
-            solution_code = _re.sub(r"^```python\s*", "", solution_code)
-            solution_code = _re.sub(r"^```\w*\s*", "", solution_code)
-            solution_code = _re.sub(r"\s*```$", "", solution_code)
+        solution_code = extract_code(solution_code)
 
     if not passed:
         gh.append_log("Delta", f"#{issue_num}", "Pre-flight failed after 10 iterations — aborting", "Failed", feedback[:200])
@@ -322,12 +329,9 @@ def main() -> None:
         TEST_PROMPT.format(n=issue_num, brief=brief, code=solution_code[:3000]),
         max_tokens=2048
     )
-    if test_code.startswith("```"):
-        test_code = _re.sub(r"^```python\s*", "", test_code)
-        test_code = _re.sub(r"^```\w*\s*", "", test_code)
-        test_code = _re.sub(r"\s*```$", "", test_code)
+    test_code = extract_code(test_code)
         
-    if not test_code:
+    if not test_code.strip():
         test_code = (
             f'"""Placeholder tests for issue #{issue_num}."""\n'
             "import unittest\n\n\n"
