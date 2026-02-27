@@ -37,3 +37,9 @@ If a session resets, the incoming agent reads this file to determine where the t
 - **Action**: Gemini returned empty solution
 - **State**: Failed
 - **Notes**: Aborting
+
+## Agent Delta — 2026-02-27T15:22:54Z
+- **Issue/PR**: #33
+- **Action**: Pre-flight failed after 3 iterations
+- **State**: Blocked
+- **Notes**: Hallucinated imports: {'killing'}
