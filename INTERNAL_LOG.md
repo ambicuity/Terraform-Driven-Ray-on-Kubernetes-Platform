@@ -90,3 +90,9 @@ SyntaxError: invalid syntax
 - **Action**: Triaged — priority:high; added to queue
 - **State**: Queued → awaiting Delta
 - **Notes**: Brief: The Node Termination Handler (NTH) currently uses `AmazonSQSFullAccess`, violating least privilege. This issue proposes 
+
+## Agent Gamma — 2026-02-27T18:35:43Z
+- **Issue/PR**: #36
+- **Action**: Posted needs-info comment
+- **State**: Blocked — awaiting user info
+- **Notes**: Missing: ['environment', 'expected_vs_actual']
