@@ -114,3 +114,9 @@ SyntaxError: invalid syntax
 - **Action**: Posted needs-info comment
 - **State**: Blocked — awaiting user info
 - **Notes**: Missing: ['environment', 'expected_vs_actual']
+
+## Agent Gamma — 2026-02-27T19:42:11Z
+- **Issue/PR**: #37
+- **Action**: Triaged — priority:medium; added to queue
+- **State**: Queued → awaiting Delta
+- **Notes**: Brief: [Beginner]: agent_context_builder.py should respect MEMORY_DIR environment variable
