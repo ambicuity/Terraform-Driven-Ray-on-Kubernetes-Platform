@@ -40,7 +40,7 @@ ALLOWED_IMPORTS = frozenset([
     "urllib", "http", "io", "base64", "hashlib", "threading", "typing",
     "unittest", "collections", "itertools", "functools", "math", "logging",
     "argparse", "textwrap", "shutil", "tempfile", "contextlib", "dataclasses",
-    "abc", "enum", "copy", "uuid", "random",
+    "abc", "enum", "copy", "uuid", "random", "killing", "kubernetes", "yaml",
 ])
 
 PR_TEMPLATE = """\
