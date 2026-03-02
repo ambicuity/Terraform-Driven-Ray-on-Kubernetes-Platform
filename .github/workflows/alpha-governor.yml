@@ -44,4 +44,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: gemini "Run the alpha-governor skill to perform the governance cycle. You have my permission to execute."
+        run: gemini -y "Run the alpha-governor skill to perform the governance cycle. You have my permission to execute."

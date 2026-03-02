@@ -46,4 +46,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: gemini "Run the beta-reviewer skill on PR #${{ github.event.pull_request.number }}. You have my permission to execute."
+        run: gemini -y "Run the beta-reviewer skill on PR #${{ github.event.pull_request.number }}. You have my permission to execute."

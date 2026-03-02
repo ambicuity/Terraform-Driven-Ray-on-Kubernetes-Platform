@@ -50,4 +50,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: gemini "Run the ai-issue-solver skill on issue #${{ steps.issue.outputs.number }}. You have my permission to execute."
+        run: gemini -y "Run the ai-issue-solver skill on issue #${{ steps.issue.outputs.number }}. You have my permission to execute."

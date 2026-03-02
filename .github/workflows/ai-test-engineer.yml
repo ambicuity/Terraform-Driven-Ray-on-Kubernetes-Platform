@@ -48,4 +48,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: gemini "Run the ai-test-engineer skill on PR #${{ steps.pr.outputs.number }}. You have my permission to execute."
+        run: gemini -y "Run the ai-test-engineer skill on PR #${{ steps.pr.outputs.number }}. You have my permission to execute."

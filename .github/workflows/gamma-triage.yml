@@ -47,4 +47,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: gemini "Run the gamma-triage skill on issue #${{ github.event.issue.number }}. You have my permission to execute."
+        run: gemini -y "Run the gamma-triage skill on issue #${{ github.event.issue.number }}. You have my permission to execute."
