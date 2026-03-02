@@ -188,3 +188,9 @@ SyntaxError: invalid syntax
 - **Action**: Gemini API failed — aborting (no mock code)
 - **State**: Failed
 - **Notes**: Quota exhaustion or API error; re-queue this issue manually.
+
+## Agent Gamma — 2026-03-02T15:40:34Z
+- **Issue/PR**: #44
+- **Action**: Triaged — priority:medium; added to queue
+- **State**: Queued → awaiting Delta
+- **Notes**: Brief: The gamma_triage.py script is not correctly invoking the new native skill for issue triage. The expected behavior is for
