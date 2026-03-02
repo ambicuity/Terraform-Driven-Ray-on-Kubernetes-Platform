@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # MIT License
 # Copyright (c) 2026 ambicuity
+"""Validate Kubernetes cluster identity and cache fingerprint."""
 
 import sys
 import hashlib
@@ -14,7 +15,8 @@ def run_kubectl_json(cmd_args):
     result = subprocess.run(
         ["kubectl"] + cmd_args + ["-o", "json"],
         capture_output=True,
-        text=True
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip())
@@ -24,11 +26,11 @@ def run_kubectl_json(cmd_args):
 def check_kubeconfig_exists():
     """Check if kubeconfig file exists and return the path."""
     # Check KUBECONFIG env var first
-    kubeconfig_path = os.environ.get('KUBECONFIG')
+    kubeconfig_path = os.environ.get("KUBECONFIG")
 
     if kubeconfig_path:
         # KUBECONFIG can be a colon-separated list of paths
-        paths = kubeconfig_path.split(':')
+        paths = kubeconfig_path.split(":")
         for path in paths:
             if os.path.exists(path):
                 return path
@@ -36,14 +38,14 @@ def check_kubeconfig_exists():
         return None, paths[0]
 
     # Fall back to default location
-    default_path = os.path.expanduser('~/.kube/config')
+    default_path = os.path.expanduser("~/.kube/config")
     if os.path.exists(default_path):
         return default_path
 
     return None, default_path
 
 
-def get_cluster_fingerprint(context_name=None):
+def get_cluster_fingerprint():
     """Generates a stable fingerprint for the current Kubernetes cluster."""
     try:
         # Check if kubeconfig file exists
@@ -54,18 +56,28 @@ def get_cluster_fingerprint(context_name=None):
             raise FileNotFoundError(
                 f"Kubeconfig file not found at: {missing_path}\n"
                 f"Please ensure your Kubernetes configuration is set up correctly.\n"
-                f"You may need to run: aws eks update-kubeconfig --name <cluster-name> --region <region>"
+                f"You may need to run: aws eks update-kubeconfig "
+                f"--name <cluster-name> --region <region>"
             )
 
         # Check kubectl availability
-        subprocess.run(["kubectl", "version", "--client"], capture_output=True, check=True)
+        subprocess.run(
+            ["kubectl", "version", "--client"], capture_output=True, check=True
+        )
 
         # 1. Verify reachability and get version
-        version_result = subprocess.run(["kubectl", "version", "-o", "json"], capture_output=True, text=True)
+        version_result = subprocess.run(
+            ["kubectl", "version", "-o", "json"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if version_result.returncode != 0:
             raise RuntimeError(version_result.stderr.strip())
         version_info = json.loads(version_result.stdout)
-        server_version = version_info.get("serverVersion", {}).get("gitVersion", "unknown")
+        server_version = version_info.get("serverVersion", {}).get(
+            "gitVersion", "unknown"
+        )
 
         # 2. Extract cluster UID from the kube-system namespace
         kube_system = run_kubectl_json(["get", "namespace", "kube-system"])
@@ -81,7 +93,7 @@ def get_cluster_fingerprint(context_name=None):
             "cluster_name": cluster_name,
             "cluster_uid": cluster_uid,
             "fingerprint": fingerprint,
-            "version": server_version
+            "version": server_version,
         }
 
     except FileNotFoundError as e:
@@ -90,11 +102,12 @@ def get_cluster_fingerprint(context_name=None):
         if "kubectl" in error_msg.lower() and "kubeconfig" not in error_msg.lower():
             error_msg = "kubectl not found in PATH."
         return {"status": "error", "message": error_msg}
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         return {"status": "error", "message": str(e)}
 
 
 def main():
+    """Main entrypoint for validating the cluster identity against caches."""
     print("Validating Kubernetes Cluster Identity...")
 
     # Check for previously stored fingerprint
@@ -102,7 +115,7 @@ def main():
     previous_data = None
 
     if os.path.exists(cache_file):
-        with open(cache_file, "r") as f:
+        with open(cache_file, "r", encoding="utf-8") as f:
             previous_data = json.load(f)
 
     current_data = get_cluster_fingerprint()
@@ -128,8 +141,8 @@ def main():
             print(f"   Previous UID: {previous_data['cluster_uid']}")
             print(f"   Current UID:  {current_data['cluster_uid']}")
             print(
-                "The cluster has been recreated! Proceeding with a stale Kubernetes client "
-                "will cause 504 Gateway Timeouts and silent drops."
+                "The cluster has been recreated! Proceeding with a stale "
+                "Kubernetes client will cause 504 Gateway Timeouts and silent drops."
             )
             print("Run `aws eks update-kubeconfig` and clear any local caches.")
             sys.exit(2)
@@ -137,7 +150,7 @@ def main():
             print("\u2705 Cluster identity matches cached fingerprint.")
 
     # Save new fingerprint
-    with open(cache_file, "w") as f:
+    with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(current_data, f)
 
     print("Validation successful. Cluster is healthy and identity is verified.")

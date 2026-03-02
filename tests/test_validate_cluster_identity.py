@@ -2,9 +2,9 @@
 # MIT License
 # Copyright (c) 2026 ambicuity
 """
-Unit tests for validate_cluster_identity.py — kubeconfig validation and cluster fingerprinting.
+Unit tests for validate_cluster_identity.py
+— kubeconfig validation and cluster fingerprinting.
 
-Tests cover:
   - check_kubeconfig_exists: handles missing files, KUBECONFIG env var, default path
   - get_cluster_fingerprint: returns proper error messages for missing kubeconfig
 """
@@ -13,11 +13,11 @@ import sys
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-import validate_cluster_identity  # noqa: E402
+import validate_cluster_identity  # noqa: E402 # pylint: disable=wrong-import-position
 
 
 class TestCheckKubeconfigExists(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestCheckKubeconfigExists(unittest.TestCase):
             kube_dir = os.path.join(tmpdir, ".kube")
             os.makedirs(kube_dir)
             config_path = os.path.join(kube_dir, "config")
-            with open(config_path, "w") as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 f.write("# test config")
 
             with patch.dict(os.environ, {"HOME": tmpdir}, clear=False):
@@ -58,7 +58,7 @@ class TestCheckKubeconfigExists(unittest.TestCase):
         """When KUBECONFIG is set and file exists, use that path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             custom_config = os.path.join(tmpdir, "my-cluster.yaml")
-            with open(custom_config, "w") as f:
+            with open(custom_config, "w", encoding="utf-8") as f:
                 f.write("# custom config")
 
             with patch.dict(os.environ, {"KUBECONFIG": custom_config}):
@@ -83,7 +83,7 @@ class TestCheckKubeconfigExists(unittest.TestCase):
             config2 = os.path.join(tmpdir, "config2.yaml")
 
             # Only config2 exists
-            with open(config2, "w") as f:
+            with open(config2, "w", encoding="utf-8") as f:
                 f.write("# config2")
 
             with patch.dict(os.environ, {"KUBECONFIG": f"{config1}:{config2}"}):
@@ -140,7 +140,7 @@ class TestGetClusterFingerprintErrors(unittest.TestCase):
             kube_dir = os.path.join(tmpdir, ".kube")
             os.makedirs(kube_dir)
             config_path = os.path.join(kube_dir, "config")
-            with open(config_path, "w") as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 f.write("# test config")
 
             # Mock kubectl not found
@@ -165,8 +165,9 @@ class TestMainExitCodes(unittest.TestCase):
         mock_fingerprint.return_value = {
             "status": "error",
             "message": "Kubeconfig file not found at: /tmp/test/.kube/config\n"
-                      "Please ensure your Kubernetes configuration is set up correctly.\n"
-                      "You may need to run: aws eks update-kubeconfig --name <cluster-name> --region <region>"
+            "Please ensure your Kubernetes configuration is set up correctly.\n"
+            "You may need to run: aws eks update-kubeconfig "
+            "--name <cluster-name> --region <region>",
         }
 
         with self.assertRaises(SystemExit) as cm:
