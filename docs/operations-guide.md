@@ -6,7 +6,7 @@ Day-2 operations handbook for deploying, managing, and troubleshooting the Ray-o
 
 | Requirement | Minimum Version |
 |-------------|----------------|
-| Terraform | >= 1.6.0 |
+| Terraform | >= 1.5.0 |
 | AWS CLI | v2 |
 | kubectl | 1.28+ |
 | Helm | 3.x |
