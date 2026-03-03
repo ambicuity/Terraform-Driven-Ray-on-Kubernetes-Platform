@@ -16,7 +16,7 @@ graph TB
 
         subgraph "EKS Cluster"
             CP["Control Plane<br/>API Server · etcd · Scheduler"]
-            CPU_NG["CPU Node Group<br/>m5.xlarge · ON_DEMAND<br/>2–10 nodes"]
+            CPU_NG["CPU Node Group<br/>m6g.xlarge · ON_DEMAND<br/>2–10 nodes"]
             GPU_NG["GPU Node Group<br/>g4dn.xlarge · SPOT<br/>0–5 nodes"]
         end
 
@@ -51,7 +51,7 @@ graph TB
 The module creates the following AWS resources (defined across `terraform/main.tf` and `terraform/node_pools.tf`):
 
 | Resource | Type | Purpose |
-|----------|------|---------|
+|----------|------|-------|
 | `aws_eks_cluster.main` | EKS Cluster | Kubernetes control plane |
 | `aws_eks_node_group.cpu_workers` | Managed Node Group | CPU worker pool (ON_DEMAND) |
 | `aws_eks_node_group.gpu_workers` | Managed Node Group | GPU worker pool (SPOT, conditional) |
@@ -105,69 +105,76 @@ graph LR
     end
 ```
 
-- **Cluster Role** — assumed by the EKS control plane. Policies: `AmazonEKSClusterPolicy`, `AmazonEKSVPCResourceController`.
-- **Node Role** — assumed by EC2 worker instances. Policies: `AmazonEKSWorkerNodePolicy`, `AmazonEKS_CNI_Policy`, `AmazonEC2ContainerRegistryReadOnly`, plus a custom EBS CSI policy.
-- **Cluster Autoscaler Role** — IRSA-based. Bound to `kube-system:cluster-autoscaler` service account. Grants `autoscaling:Describe*`, `autoscaling:SetDesiredCapacity`, `autoscaling:TerminateInstanceInAutoScalingGroup`.
-- **Node Termination Handler Role** — IRSA-based. Provisioned only when GPU nodes use SPOT capacity. Grants `AmazonSQSFullAccess` for reading ASG termination events.
-
-## KMS Encryption
-
-Kubernetes secrets are encrypted at rest using AWS KMS envelope encryption:
-
-1. If `var.kms_key_arn` is provided, that key is used.
-2. Otherwise, the module creates a dedicated CMK (`aws_kms_key.eks`) with:
-   - Automatic annual key rotation enabled
-   - 7-day deletion window
-   - Key policy granting decrypt/encrypt to the EKS cluster IAM role
-
-The same KMS key is used for CloudWatch log group encryption.
+- **Cluster Role** — assumed by the EKS control plane; grants AWS APIs needed to manage ENIs, security groups, and load balancers.
+- **Node Role** — assumed by every EC2 worker; grants ECR pull, VPC CNI mutation, and EBS CSI attachment.
+- **Autoscaler Role (IRSA)** — scoped to the `kube-system/cluster-autoscaler` service account; allows `autoscaling:Describe*` and `autoscaling:SetDesiredCapacity`.
+- **NTH Role (IRSA)** — scoped to the node termination handler; allows reading the SQS queue for Spot interruption notices.
 
 ## Node Group Design
 
-### CPU Workers
-- **Capacity Type**: `ON_DEMAND` (default)
-- **Instance Types**: `m5.xlarge`, `m5.2xlarge`
-- **Scaling**: 2 (min) → 3 (desired) → 10 (max)
-- **Labels**: `ray.io/node-type=worker`, `ray.io/resource-type=cpu`
-- **EBS**: 100 GiB gp3, encrypted, 3000 IOPS
+### CPU Node Group
 
-### GPU Workers (Conditional)
-- **Capacity Type**: `SPOT` (default, for cost optimization)
-- **Instance Types**: `g4dn.xlarge`, `g4dn.2xlarge`
-- **Scaling**: 0 (min) → 0 (desired) → 5 (max) — scale-to-zero
-- **Taint**: `nvidia.com/gpu=true:NoSchedule` — prevents non-GPU workloads
-- **Labels**: `ray.io/resource-type=gpu`, `nvidia.com/gpu=true`
-- **EBS**: 200 GiB gp3, encrypted, 3000 IOPS
-- **User Data**: Installs NVIDIA drivers and container runtime via `terraform/user-data-gpu.sh`
+| Parameter | Value |
+|-----------|-------|
+| Instance type | `m6g.xlarge` (4 vCPU, 16 GiB) |
+| Architecture | ARM64 (AWS Graviton2) |
+| Capacity type | `ON_DEMAND` |
+| Scaling | min=2, desired=2, max=10 |
+| Storage | 50 GiB gp3 EBS |
+| AMI | `AL2_ARM_64` |
 
-Both node groups use:
-- `create_before_destroy` lifecycle for zero-downtime updates
-- `ignore_changes` on `desired_size` to prevent Terraform from fighting the autoscaler
-- IMDSv2 enforcement (`http_tokens = required`)
+The CPU node group uses `m6g.xlarge` Graviton2 instances for cost-efficient general-purpose workloads. The `m6g` family provides up to 40% better price/performance than equivalent `m5` instances.
 
-## EKS Addons
+### GPU Node Group
 
-| Addon | Purpose |
-|-------|---------|
-| `vpc-cni` | Pod networking via AWS VPC CNI |
-| `kube-proxy` | Kubernetes service proxy |
-| `coredns` | Cluster DNS |
+| Parameter | Value |
+|-----------|-------|
+| Instance type | `g4dn.xlarge` (4 vCPU, 16 GiB, 1x T4 GPU) |
+| Architecture | x86_64 |
+| Capacity type | `SPOT` |
+| Scaling | min=0, desired=0, max=5 |
+| Storage | 100 GiB gp3 EBS |
+| AMI | `AL2_x86_64_GPU` |
 
-All addons use `OVERWRITE` conflict resolution and depend on the CPU node group being ready.
+The GPU node group scales to zero by default and is only enabled when `enable_gpu_nodes = true`. Spot capacity reduces GPU costs by up to 70%.
 
-## Network Security
+## Security Architecture
 
-- **Egress**: Node SG allows outbound to RFC 1918 ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
-- **Ingress**: Self-referencing rule allows all node-to-node traffic (required for Ray GCS and object store)
-- **Cluster Endpoint**: Private access enabled by default, public access disabled (`cluster_endpoint_public_access = false`)
+### Network Security
 
-## CloudWatch Logging
+- Worker nodes live in **private subnets** with no direct internet ingress.
+- A dedicated **node security group** allows:
+  - All traffic within the node SG (node-to-node).
+  - Port 443 inbound from the EKS control plane SG (kubelet/webhook).
+  - Ephemeral ports (1025–65535) inbound from the control plane SG.
+- IMDSv2 is **enforced** on all nodes via launch template (`http_tokens = required`, hop limit = 1).
 
-When `enable_cloudwatch_logs = true` (default), the following control plane log types are shipped:
-- `api` — API server audit trail
-- `audit` — Kubernetes audit logs
-- `authenticator` — IAM authenticator events
-- `controllerManager` — Controller actions
-- `scheduler` — Scheduling decisions
+### Secrets Encryption
 
-Retention: 7 days (configurable via `log_retention_days`).
+A dedicated **KMS Customer Managed Key** (CMK) is created for envelope encryption of Kubernetes `Secret` objects stored in etcd. Key rotation is enabled by default.
+
+### IRSA (IAM Roles for Service Accounts)
+
+An OIDC provider is registered for the EKS cluster, enabling pods to assume IAM roles without node-level credentials. The Cluster Autoscaler and Node Termination Handler both use IRSA.
+
+## Add-ons
+
+| Add-on | Purpose |
+|--------|---------|
+| `vpc-cni` | AWS VPC CNI — assigns VPC IPs to pods |
+| `kube-proxy` | iptables rules for Service routing |
+| `coredns` | In-cluster DNS resolution |
+
+Add-on versions are pinned via the `addon_versions` variable and can be upgraded independently of the cluster version.
+
+## Observability
+
+Control plane log types enabled by default:
+
+- `api` — API server request logs
+- `audit` — Kubernetes audit log
+- `authenticator` — AWS IAM authenticator logs
+- `controllerManager` — kube-controller-manager logs
+- `scheduler` — kube-scheduler logs
+
+Logs are shipped to a **CloudWatch Log Group** (`/aws/eks/<cluster-name>/cluster`) with a configurable retention period (default: 30 days).
