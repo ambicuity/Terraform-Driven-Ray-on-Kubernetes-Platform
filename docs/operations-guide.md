@@ -198,14 +198,6 @@ terraform plan -destroy -out=destroy.tfplan
 terraform apply destroy.tfplan
 ```
 
-### Manual AWS Cleanup
-
-Use the `aws-cleanup.yml` workflow for guided resource cleanup:
-
-```bash
-# Via GitHub Actions (manual dispatch)
-gh workflow run aws-cleanup.yml
-```
 
 ---
 
