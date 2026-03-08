@@ -10,7 +10,7 @@ pytest-cov==6.0.0
 
 # Linters
 flake8==7.1.1
-pylint==3.3.4
+pylint==4.0.5
 mypy==1.11.2
 
 # Type stubs
