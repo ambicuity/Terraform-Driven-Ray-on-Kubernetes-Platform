@@ -24,7 +24,7 @@ jobs:
           terraform_version: "~> 1.7.0"
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           # Assumes OIDC is configured as per Phase 1 docs
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
