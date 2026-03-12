@@ -70,8 +70,10 @@ jobs:
           if ! brew list --versions helm >/dev/null; then
             brew install helm
           fi
-          "$(brew --prefix minikube)/bin/minikube" version
-          "$(brew --prefix helm)/bin/helm" version --short
+          brew link --overwrite minikube
+          brew link --overwrite helm
+          minikube version
+          helm version --short
 
       # ── 4: Python setup ──────────────────────────────────────────────────────
       - name: Set up Python 3.11
