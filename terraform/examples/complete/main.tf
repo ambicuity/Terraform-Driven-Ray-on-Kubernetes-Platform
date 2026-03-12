@@ -44,6 +44,11 @@ module "vpc" {
 }
 
 module "ray_eks_cluster" {
+  # checkov:skip=CKV_AWS_355: Cluster Autoscaler requires wildcard Describe permissions; mutating permissions remain tag-scoped in the module.
+  # checkov:skip=CKV_AWS_144: Velero backup replication is an opt-in cost tradeoff and is disabled by default in the module.
+  # checkov:skip=CKV_AWS_18: Access logging for the optional Velero bucket is an opt-in cost tradeoff and is disabled by default in the module.
+  # checkov:skip=CKV2_AWS_61: Lifecycle rules for the optional Velero bucket are workload-specific and intentionally left configurable.
+  # checkov:skip=CKV2_AWS_62: Event notifications are not required for the optional Velero backup bucket.
   source = "../.."
 
   cluster_name = var.cluster_name

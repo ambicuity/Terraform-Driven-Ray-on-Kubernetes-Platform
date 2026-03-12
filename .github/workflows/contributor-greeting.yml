@@ -19,22 +19,23 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           issue_message: |
-            Welcome to **Terraform-Driven Ray on Kubernetes** 👋
+            Welcome to **Terraform-Driven Ray on Kubernetes**.
 
-            Thanks for opening your first issue! We appreciate your interest in the project.
+            Thanks for opening your first issue.
 
             A maintainer will review this shortly. In the meantime:
-            - 📖 Check the [README](https://github.com/${{ github.repository }}#readme) for setup instructions
-            - 🏗️ Review the [Architecture Diagram](https://github.com/${{ github.repository }}#architecture)
-            - 💬 Feel free to add more context if needed
+            - Review the [README](https://github.com/${{ github.repository }}#readme) for setup guidance
+            - Use `/plan` on the issue if you want the official planning workflow to break the work into tasks
+            - Add reproduction steps and environment details if more context is available
           pr_message: |
-            Welcome to **Terraform-Driven Ray on Kubernetes** 🎉
+            Welcome to **Terraform-Driven Ray on Kubernetes**.
 
-            Thanks for your first pull request! We're excited to review your contribution.
+            Thanks for your first pull request.
 
-            A few things to keep in mind:
-            - ✅ All CI checks must pass before merge
-            - 📝 Please use [Conventional Commits](https://www.conventionalcommits.org/) for your PR title (e.g., `feat:`, `fix:`, `docs:`)
-            - 📋 Make sure to add an entry in `CHANGELOG.md`
+            A few repo-specific checks to keep in mind:
+            - `CI` is path-scoped, so only the relevant infra, app, automation, or docs jobs should run
+            - `/gemini review` and `/gemini summary` are available for Gemini Code Assist
+            - `@coderabbitai review` and `@coderabbitai plan` are available for CodeRabbit
+            - Please keep the PR title in [Conventional Commits](https://www.conventionalcommits.org/) format
 
-            A maintainer will review this soon. Thank you! 🙏
+            A maintainer will review this soon.

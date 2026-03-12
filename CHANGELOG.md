@@ -2,59 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - Phase 3
-### Added
-- ci: Added macOS M1 (`macos-14`) GitHub Actions workflow for zero-cost, local-hardware parity testing (#29)
-- feat: Implemented Multi-AZ pod Topology Spread Constraints for Ray workers (#17)
-- feat: Provisioned Velero for AWS S3 automated cluster backups and DRS (#17)
-- feat: Tuned KubeRay autoscaler idleTimeout down to 30s for FinOps (#17)
-
-### Fixed
-- docs: Clarified that `aws-cleanup.yml` performs a report-only orphaned-resource scan rather than infrastructure teardown.
-- ci: Repaired PR automation for contributor greetings, release drafting, and Apple Silicon validation while fixing typing issues in repository tooling.
-
-## [Unreleased] - Phase 2.1
-### Added
-- MIT License headers to all operational scripts.
-- Mandatory `Service` and `Environment` tags for FinOps tracking.
-- Graviton (m6g) support for CPU node groups.
+## [Unreleased]
 
 ### Changed
-- Upgraded EKS cluster to version 1.31.
-- Optimized cost by migrating from m5 to m6g instances.
 
-### Fixed
-- Unused `os` import in `chaos_test.py`.
-- OPA v1.0 syntax compatibility for cost governance policies.
+- replaced the custom Gemini CLI agent stack with CodeRabbit, Gemini Code Assist on GitHub, and official GitHub Agentic Workflows
+- collapsed fragmented CI checks into one path-scoped required `CI` workflow
+- updated assignment follow-up logic to suppress nudges when an assigned issue already has a linked open PR
+- pinned public Terraform module examples to `v1.0.0`
 
-## [Unreleased] - 2026-02-23
+### Removed
+
+- legacy Gemini CLI subagents, setup action, queue files, and memory artifacts
+- custom AI workflows (`gamma-triage`, `delta-executor`, `beta-reviewer`, `alpha-governor`, and related helpers)
+- redundant standalone CI workflows that duplicated the required router
+
+### Documentation
+
+- rewrote automation, security, CI/CD, contribution, and roadmap docs to match the current repository model
+
+## [v1.0.0] - 2026-02-26
 
 ### Added
-- Automated Infrastructure Drift Detection workflow and reporting script.
-- Ray Chaos Resilience resilience test workload.
-- FinOps Governance policies (OPA) for cost guardrails.
-- Grafana Dashboards for Ray Health and EKS Cost Observability.
-- Unified root-level `Makefile` for developer experience.
+
+- production-ready EKS and KubeRay Terraform platform
+- Velero backup integration and KMS-backed security defaults
+- OPA guardrails for infrastructure and Ray workloads
+- Grafana dashboards and validation tooling
 
 ### Changed
-- Refactored repository structure: moved Terraform files to `terraform/` directory.
-- Updated all CI/CD workflows and documentation to reflect new directory structure.
 
-### Added
-- Elite CI suite: Checkov, Infracost, terraform-docs, CodeQL, PR lint, stale bot
-- OPA 1.0-compliant Rego policies with universal array comprehension syntax
-- Terraform `mock_provider` support in test framework for offline validation
-- AWS Node Termination Handler IAM for Spot interruption graceful draining
-
-### Fixed
-- OPA `rego_parse_error` caused by `some w in` inside array comprehensions
-- Terraform test failure caused by missing explicit AWS provider credentials
-- Duplicate `eks_addons` variable declaration in `variables.tf`
+- moved Terraform code into `terraform/`
+- upgraded the EKS baseline to 1.31
+- optimized CPU workers toward Graviton-based instance families
 
 ### Security
-- Pinned all GitHub Actions to SHA or major-version tags
-- EKS cluster endpoint public access defaulted to `false`
-- KMS encryption enforced on CloudWatch log groups
+
+- defaulted the EKS public endpoint to `false`
+- enforced KMS encryption for control-plane logs
+- pinned GitHub Actions to stable version references

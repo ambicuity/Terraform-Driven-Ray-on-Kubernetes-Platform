@@ -187,6 +187,7 @@ resource "aws_launch_template" "gpu_workers" {
 }
 
 # Cluster Autoscaler IAM Policy
+# checkov:skip=CKV_AWS_355: The Cluster Autoscaler requires wildcard scope for AWS Describe APIs; mutating autoscaling actions are constrained by resource tags below.
 resource "aws_iam_policy" "cluster_autoscaler" {
   count       = var.enable_cluster_autoscaler ? 1 : 0
   name_prefix = "${var.cluster_name}-autoscaler-"
