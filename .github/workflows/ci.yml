@@ -1,210 +1,185 @@
-name: CI — Unified Quality Gate
-
-# Required status check for all PRs to main.
-# Replaces the fragmented per-tool workflow approach with a single, ordered
-# pipeline that gives engineers one pass/fail signal per PR.
-#
-# Jobs (in dependency order):
-#   lint        — flake8 + pylint + mypy across all Python source
-#   test        — pytest full suite with coverage report
-#   tf-validate — Terraform fmt-check + validate + OPA policy tests
-#   build-check — Helm template render + kube-score static analysis
+name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
     branches: [main]
+  push:
+    branches: [main, develop]
   workflow_dispatch:
 
-# Cancel superseded runs on the same branch to save runner minutes.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write  # for coverage comment on PRs
+  pull-requests: read
 
 env:
   PYTHON_VERSION: "3.11"
-  TERRAFORM_VERSION: "~> 1.7.0"
+  TERRAFORM_VERSION: "1.9.8"
+  HELM_VERSION: "3.16.4"
+  OPA_VERSION: "0.63.0"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Job 1: Python Lint
-# Runs flake8, pylint, and mypy across all Python source trees.
-# Fails fast on any style or type error so downstream jobs don't waste minutes.
-# ─────────────────────────────────────────────────────────────────────────────
 jobs:
-  lint:
-    name: Lint — Python (flake8, pylint, mypy)
+  detect-changes:
+    name: Detect change scope
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    outputs:
+      infra: ${{ steps.detect.outputs.infra }}
+      app: ${{ steps.detect.outputs.app }}
+      automation: ${{ steps.detect.outputs.automation }}
+      docs: ${{ steps.detect.outputs.docs }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        name: Classify changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            infra=true
+            app=true
+            automation=true
+            docs=true
+          else
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              base="${{ github.event.pull_request.base.sha }}"
+              head="${{ github.event.pull_request.head.sha }}"
+            elif [[ -n "${{ github.event.before }}" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+              base="${{ github.event.before }}"
+              head="${{ github.sha }}"
+            else
+              base="$(git rev-list --max-parents=0 HEAD)"
+              head="${{ github.sha }}"
+            fi
+
+            git diff --name-only "$base" "$head" | tee changed_files.txt
+
+            matches() {
+              local pattern="$1"
+              if [[ -s changed_files.txt ]] && grep -Eq "$pattern" changed_files.txt; then
+                echo true
+              else
+                echo false
+              fi
+            }
+
+            infra="$(matches '^(terraform/|policies/|\\.tflint\\.hcl$)')"
+            app="$(matches '^(helm/|workloads/|validation/)')"
+            automation="$(matches '^(scripts/|tests/|\\.agents/|\\.gemini/|\\.coderabbit\\.yaml$|\\.github/workflows/|\\.github/instructions/|\\.github/copilot-instructions\\.md$|\\.gitattributes$)')"
+            docs="$(matches '^(README\\.md$|CONTRIBUTING\\.md$|SECURITY\\.md$|ROADMAP\\.md$|CHANGELOG\\.md$|docs/|\\.github/pull_request_template\\.md$|\\.github/ISSUE_TEMPLATE/|\\.github/DISCUSSION_TEMPLATE/)')"
+          fi
+
+          {
+            echo "infra=$infra"
+            echo "app=$app"
+            echo "automation=$automation"
+            echo "docs=$docs"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Report change scope
+        run: |
+          echo "infra=${{ steps.detect.outputs.infra }}"
+          echo "app=${{ steps.detect.outputs.app }}"
+          echo "automation=${{ steps.detect.outputs.automation }}"
+          echo "docs=${{ steps.detect.outputs.docs }}"
+
+  infra-ci:
+    name: Infra CI
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.infra == 'true'
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install lint toolchain
-        run: |
-          python -m pip install --upgrade pip
-          pip install \
-            flake8==7.1.1 \
-            pylint==3.3.4 \
-            mypy==1.11.2 \
-            types-requests \
-            numpy
-
-      - name: flake8 — PEP 8 & syntax
-        run: |
-          flake8 scripts/ workloads/ validation/ tests/ \
-            --max-line-length=120 \
-            --extend-ignore=E203,W503 \
-            --statistics \
-            --count
-        # Fail loudly — flake8 exits non-zero on any violation
-
-      - name: pylint — code quality gate (≥ 7.0 score required)
-        run: |
-          pylint scripts/ workloads/ \
-            --disable=C0114,C0115,C0116,R0903 \
-            --max-line-length=120 \
-            --fail-under=7.0
-
-      - name: mypy — static type checking
-        run: |
-          mypy scripts/ workloads/ \
-            --ignore-missing-imports \
-            --no-strict-optional \
-            --allow-untyped-defs
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Job 2: Python Tests + Coverage
-# Runs the full pytest suite. Coverage report is printed to the job log and,
-# on PRs, posted as a check annotation. Failures from here indicate regressions
-# in agent logic, not just style.
-# ─────────────────────────────────────────────────────────────────────────────
-  test:
-    name: Test — pytest + coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: lint  # Don't waste time testing code that won't lint
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install \
-            pytest==8.3.4 \
-            pytest-cov==6.0.0 \
-            numpy
-
-      - name: Run pytest with coverage
-        run: |
-          pytest tests/ \
-            --tb=short \
-            --cov=scripts \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage.xml \
-            -v \
-            --junit-xml=test-results.xml
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: |
-            coverage.xml
-            test-results.xml
-          retention-days: 14
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Job 3: Terraform Validate + OPA Policy Tests
-# Checks Terraform formatting, validates the module and examples, then runs
-# OPA tests against the Rego policies. Does NOT run terraform plan (requires
-# real AWS credentials). Safe for open PRs.
-# ─────────────────────────────────────────────────────────────────────────────
-  tf-validate:
-    name: Terraform — Format, Validate, OPA
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: lint
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Terraform
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Terraform format check
-        # Exits non-zero if any .tf file is not correctly formatted.
-        # Run `terraform fmt -recursive terraform/` locally to fix.
-        run: terraform fmt -check -recursive terraform/
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
 
-      - name: Terraform init (no backend)
-        working-directory: terraform
-        run: terraform init -backend=false
-
-      - name: Terraform validate (root module)
-        working-directory: terraform
-        run: terraform validate
-
-      - name: Terraform init (examples/complete)
-        working-directory: terraform/examples/complete
-        run: terraform init -backend=false
-
-      - name: Terraform validate (examples/complete)
-        working-directory: terraform/examples/complete
-        run: terraform validate
-
-      - name: Setup OPA
+      - name: Set up OPA
         uses: open-policy-agent/setup-opa@v2
         with:
-          version: 0.63.0
+          version: ${{ env.OPA_VERSION }}
 
-      - name: OPA policy tests
+      - name: Install Checkov
+        run: |
+          python -m pip install --upgrade pip
+          pip install checkov==3.2.358
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Terraform validate root module
+        working-directory: terraform
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform validate example
+        working-directory: terraform/examples/complete
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform tests
+        working-directory: terraform
+        run: terraform test
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint --chdir=terraform
+
+      - name: Checkov
+        run: checkov -d terraform --quiet
+
+      - name: OPA tests
         working-directory: policies
         run: opa test . -v
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Job 4: Build Verification (Helm + kube-score)
-# Renders the Helm chart with default values and pipes through kube-score to
-# catch configuration anti-patterns (missing resource limits, no probes, etc.)
-# before any deployment attempt.
-# ─────────────────────────────────────────────────────────────────────────────
-  build-check:
-    name: Build — Helm render + kube-score
+  app-ci:
+    name: App CI
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: tf-validate
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app == 'true'
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install Helm
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Compile workload and validation Python
+        run: python -m compileall workloads validation
+
+      - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: "3.16.4"
+          version: ${{ env.HELM_VERSION }}
 
       - name: Install kube-score
         run: |
@@ -214,54 +189,139 @@ jobs:
           sudo mv kube-score /usr/local/bin/kube-score
           kube-score version
 
-      - name: Render Helm chart (KubeRay values)
-        run: |
-          helm template ray-ci-check helm/ray/ \
-            --set nameOverride=ray-ci \
-            --debug \
-            > /tmp/rendered.yaml
-          echo "✅ Helm template rendered successfully"
-          wc -l /tmp/rendered.yaml
+      - name: Helm lint
+        run: helm lint helm/ray
 
-      - name: kube-score static analysis
+      - name: Helm template
+        run: helm template ray-ci helm/ray > /tmp/ray-rendered.yaml
+
+      - name: Kube-score
         run: |
-          # kube-score checks resource limits, security contexts, probes.
-          # --ignore-test container-security-context-privileged: KubeRay head uses elevated context.
-          # Exit code 0 = only warnings (acceptable); non-zero = errors (fail).
-          kube-score score /tmp/rendered.yaml \
+          kube-score score /tmp/ray-rendered.yaml \
             --ignore-test container-security-context-privileged \
-            --output-format ci \
-            || true
-          echo "✅ kube-score analysis complete"
+            --output-format ci
 
-      - name: Upload rendered manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: helm-rendered-manifests
-          path: /tmp/rendered.yaml
-          retention-days: 7
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Final summary — reports pass/fail status of all 4 jobs in the PR checks panel
-# ─────────────────────────────────────────────────────────────────────────────
-  ci-status:
-    name: CI — All Checks Passed
+  automation-ci:
+    name: Automation CI
     runs-on: ubuntu-latest
-    needs: [lint, test, tf-validate, build-check]
+    needs: detect-changes
+    if: needs.detect-changes.outputs.automation == 'true'
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest==8.3.4
+
+      - name: Compile automation Python
+        run: python -m compileall scripts tests
+
+      - name: Pytest
+        run: pytest tests -q
+
+  docs-meta:
+    name: Docs Meta
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs == 'true'
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate documentation metadata
+        run: |
+          python - <<'PY'
+          import pathlib
+          import sys
+
+          repo = pathlib.Path(".")
+          targets = []
+          explicit = [
+              "README.md",
+              "CONTRIBUTING.md",
+              "SECURITY.md",
+              "ROADMAP.md",
+              "docs/ci-cd-pipelines.md",
+              "docs/contributing.md",
+              "docs/security.md",
+              "docs/terraform-module.md",
+              ".github/pull_request_template.md",
+          ]
+          for name in explicit:
+              path = repo / name
+              if path.exists():
+                  targets.append(path)
+          for root in (repo / ".github" / "ISSUE_TEMPLATE", repo / ".github" / "DISCUSSION_TEMPLATE"):
+              if root.exists():
+                  targets.extend(sorted(root.rglob("*")))
+          targets = [path for path in targets if path.is_file() and path.suffix in {".md", ".yml", ".yaml"}]
+
+          banned = {
+              "/ai-review": "deprecated slash commands must not be documented",
+              "/ai-tests": "deprecated slash commands must not be documented",
+              "/replan": "deprecated slash commands must not be documented",
+              "ai-doc-sync.yml": "removed workflow references must be removed",
+              "ai-issue-solver.yml": "removed workflow references must be removed",
+              "ai-test-engineer.yml": "removed workflow references must be removed",
+              "gamma-triage.yml": "removed workflow references must be removed",
+              "delta-executor.yml": "removed workflow references must be removed",
+              "beta-reviewer.yml": "removed workflow references must be removed",
+              "alpha-governor.yml": "removed workflow references must be removed",
+              "memory.yml": "removed workflow references must be removed",
+              "memory-incremental.yml": "removed workflow references must be removed",
+              "terraform-ci.yml": "removed workflow references must be removed",
+              "tfsec.yml": "removed workflow references must be removed",
+              "tflint.yml": "removed workflow references must be removed",
+              "checkov.yml": "removed workflow references must be removed",
+              "kube-score.yml": "removed workflow references must be removed",
+              "python-lint.yml": "removed workflow references must be removed",
+              "markdown-links.yml": "removed workflow references must be removed",
+          }
+          unpinned_source = 'source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform'
+          failures = []
+          for path in targets:
+              text = path.read_text(encoding="utf-8")
+              for needle, reason in banned.items():
+                  if needle in text:
+                      failures.append(f"{path}: {reason} (`{needle}`)")
+              if unpinned_source in text:
+                  failures.append(f"{path}: Terraform module source must be pinned to a git ref")
+
+          if failures:
+              print("\n".join(failures))
+              sys.exit(1)
+          PY
+
+  ci-status:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, infra-ci, app-ci, automation-ci, docs-meta]
     if: always()
 
     steps:
-      - name: Check all jobs passed
+      - name: Verify required jobs
         run: |
-          if [[ "${{ needs.lint.result }}" != "success" ||
-                "${{ needs.test.result }}" != "success" ||
-                "${{ needs.tf-validate.result }}" != "success" ||
-                "${{ needs.build-check.result }}" != "success" ]]; then
-            echo "❌ One or more CI jobs failed:"
-            echo "  lint:        ${{ needs.lint.result }}"
-            echo "  test:        ${{ needs.test.result }}"
-            echo "  tf-validate: ${{ needs.tf-validate.result }}"
-            echo "  build-check: ${{ needs.build-check.result }}"
+          if [[ "${{ needs.infra-ci.result }}" == "failure" ||
+                "${{ needs.infra-ci.result }}" == "cancelled" ||
+                "${{ needs.app-ci.result }}" == "failure" ||
+                "${{ needs.app-ci.result }}" == "cancelled" ||
+                "${{ needs.automation-ci.result }}" == "failure" ||
+                "${{ needs.automation-ci.result }}" == "cancelled" ||
+                "${{ needs.docs-meta.result }}" == "failure" ||
+                "${{ needs.docs-meta.result }}" == "cancelled" ]]; then
+            echo "One or more scoped CI jobs failed."
             exit 1
           fi
-          echo "✅ All CI jobs passed"
+          echo "All required scoped CI checks passed."

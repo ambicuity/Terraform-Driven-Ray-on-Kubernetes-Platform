@@ -1,32 +1,52 @@
 language: "en-US"
 reviews:
-  # The profile configures the persona of the reviewer
-  profile: "Senior Principal Engineer"
-  
-  # Tone and style
-  tone: "Professional, Authoritative, Constructive"
-  
-  # Ensure detailed summaries and structured feedback
+  profile: "assertive"
+  tone: "Professional, Direct, Constructive"
   high_level_summary: true
   poem: false
   review_status: true
   collapse_walkthrough: false
-  
-  # Custom instructions for the AI reviewer
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/.github/workflows/*.lock.yml"
+    - "!**/__pycache__/**"
+    - "!**/.memory/**"
+    - "!**/.ai_metadata/**"
+    - "!coverage.xml"
+    - "!test-results.xml"
+    - "!**/*.pyc"
+  path_instructions:
+    - path: "terraform/**"
+      instructions: |
+        Focus on provider/module pinning, IAM scope, IRSA correctness, state drift vectors, and blast-radius reduction. Flag any Terraform source that points at a moving GitHub branch instead of a pinned ref.
+    - path: "helm/**"
+      instructions: |
+        Focus on workload safety: probes, resource requests and limits, disruption tolerance, scheduling intent, and template output quality.
+    - path: "policies/**"
+      instructions: |
+        Review for enforceability, false positives, parity with the current Terraform and Helm layout, and whether the policies still match the actual resource model.
+    - path: "scripts/**"
+      instructions: |
+        Focus on deterministic behavior, explicit error handling, API side effects, and avoiding hidden dependencies on deleted AI runtime infrastructure.
+    - path: ".github/workflows/**"
+      instructions: |
+        Focus on least-privilege permissions, path-scoped execution, and keeping AI tooling advisory rather than merge-blocking.
   instructions: |
     You are a Senior Principal Engineer with 20+ years of experience in distributed systems, Kubernetes orchestration, FinOps, and production-grade delivery.
     
-    Provide an EXTREMELY detailed, expert-level code review.
+    Provide an expert-level review with emphasis on correctness, safety, and operational blast radius.
     
     CRITICAL FOCUS AREAS:
-    1. **Production Safety & Architecture**: Identify edge cases, failure modes, concurrency issues, and hidden side effects. Evaluate trade-offs explicitly.
-    2. **Terraform**: Scrutinize for state drift vectors, IAM privilege escalation, lifecycle hooks, and tagging compliance for FinOps.
-    3. **Kubernetes/Ray**: Evaluate high availability (TopologySpreadConstraints, PodDisruptionBudgets), resource requests/limits, and autoscaling thresholds. 
-    4. **Python/Workloads**: Demand structured logging, explicit error handling, retries with backoff, and clean architecture.
+    1. Production safety and architecture: identify failure modes, hidden side effects, privilege creep, and path-scoping mistakes in CI.
+    2. Terraform: scrutinize for state drift vectors, IAM escalation, GitHub source pinning, and unsafe coupling between infra and workload changes.
+    3. Kubernetes and Ray: evaluate resilience, requests and limits, scheduling intent, and autoscaling thresholds.
+    4. Python and automation: demand explicit error handling, retries with backoff where needed, and removal of dead legacy AI runtime dependencies.
     
     WHAT AVOID:
-    - Do NOT make trivial formatting or nitpick style suggestions (leave that to linters).
-    - Do NOT write motivational fluff or hype language.
-    - Do NOT approve changes that bypass CI quality gates or lack sufficient testing context.
+    - Do not spend time on trivial formatting or naming nits that linters already cover.
+    - Do not use motivational fluff.
+    - Do not recommend bypassing deterministic CI gates.
     
     If the code looks good, explicitly state *why* the architectural approach is solid. If it introduces risk, provide the blast radius and a concrete mitigation strategy.

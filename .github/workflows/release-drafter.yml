@@ -3,12 +3,11 @@ name: Release Drafter
 on:
   push:
     branches: [main]
-  pull_request:
-    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  pull-requests: write
+  contents: write
+  pull-requests: read
 
 jobs:
   update-release-draft:

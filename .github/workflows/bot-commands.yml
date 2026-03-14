@@ -30,6 +30,26 @@ jobs:
             const isPR = !!context.payload.issue.pull_request;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const ignoredCommands = new Set(['/ai-review', '/ai-tests', '/plan', '/replan', '/gemini']);
+            const managedLabels = {
+              'P0-critical': { color: 'b60205', description: 'Outage-level — drop everything' },
+              'P1-high': { color: 'd93f0b', description: 'Must fix this sprint' },
+              'P2-medium': { color: 'fbca04', description: 'Should fix soon' },
+              'P3-low': { color: '0e8a16', description: 'Nice to have' },
+              'status/in-progress': { color: 'fbca04', description: 'Actively being worked on' },
+              'status/blocked': { color: 'b60205', description: 'Blocked by dependency or decision' },
+              'status/needs-review': { color: '0e8a16', description: 'Ready for review' },
+              'status/approved': { color: '0e8a16', description: 'Approved and ready to merge' },
+              'status/needs-info': { color: 'e4e669', description: 'Waiting on reporter feedback' },
+              'duplicate': { color: 'cfd3d7', description: 'This issue or pull request already exists' },
+              'task': { color: '1d76db', description: 'Actionable work item created from planning' },
+              'report': { color: '5319e7', description: 'Automated status or hygiene report' },
+              'repo-status': { color: '0052cc', description: 'Repository health and status reporting' },
+              'automation': { color: 'bfdadc', description: 'GitHub automation and workflow behavior' },
+              'quality': { color: '0e8a16', description: 'Repository quality improvements' },
+              'repo-hygiene': { color: '5319e7', description: 'Repository hygiene and maintenance' },
+              'contribution-ready': { color: '0e8a16', description: 'Pull request meets contribution guidelines' }
+            };
 
             // Parse command and args
             const parts = comment.split(/\s+/);
@@ -37,6 +57,11 @@ jobs:
             const args = parts.slice(1);
 
             console.log(`Command: ${cmd}, Args: ${args}, Author: ${author}`);
+
+            if (ignoredCommands.has(cmd)) {
+              console.log(`Delegating ${cmd} to an installed GitHub app or agentic workflow.`);
+              return;
+            }
 
             async function react(emoji) {
               await github.rest.reactions.createForIssueComment({
@@ -54,15 +79,33 @@ jobs:
               });
             }
 
+            async function ensureLabel(label) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch (e) {
+                if (!managedLabels[label]) {
+                  throw e;
+                }
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: label,
+                  color: managedLabels[label].color,
+                  description: managedLabels[label].description
+                });
+              }
+            }
+
             async function addLabel(label) {
               try {
+                await ensureLabel(label);
                 await github.rest.issues.addLabels({
                   owner, repo,
                   issue_number: issueNumber,
                   labels: [label]
                 });
               } catch (e) {
-                await reply(`⚠️ Label \`${label}\` not found. Run \`/help labels\` to see available labels.`);
+                await reply(`⚠️ Could not apply label \`${label}\`.`);
               }
             }
 
@@ -78,37 +121,20 @@ jobs:
               }
             }
 
+            async function removeLabels(labels) {
+              for (const label of labels) {
+                await removeLabel(label);
+              }
+            }
+
             // ========== COMMAND HANDLERS ==========
 
             switch (cmd) {
-
-              // --- AI Commands ---
-              case '/ai-review':
-                if (!isPR) { await reply('⚠️ `/ai-review` only works on Pull Requests.'); break; }
-                await addLabel('ai-review');
-                await react('rocket');
-                break;
-
-              case '/ai-tests':
-                if (!isPR) { await reply('⚠️ `/ai-tests` only works on Pull Requests.'); break; }
-                await addLabel('ai-review');
-                await react('rocket');
-                await reply('🧪 AI Test Engineer triggered. Test suggestions will appear shortly.');
-                break;
-
-              case '/plan':
-              case '/replan':
-                if (isPR) { await reply('⚠️ `/plan` and `/replan` only work on Issues. Use `/ai-review` for PRs.'); break; }
-                await react('rocket');
-                await reply('🤖 **AI Solution Plan triggered.** Gemini is analyzing this issue — expect a response in ~30 seconds.');
-                break;
-
-              // --- Status Response (Assignment Follow-up) ---
               case '/working':
+                await removeLabels(['status/blocked', 'status/needs-review', 'status/approved', 'status/needs-info', 'status:in-progress', 'needs-review', 'approved', 'needs-info', 'needs-triage']);
                 await addLabel('status/in-progress');
-                await removeLabel('needs-triage');
                 await react('+1');
-                await reply(`✅ Thanks @${author}! Marked as **in progress**. Keep up the great work. 💪`);
+                await reply(`✅ @${author} is marked as working on this.`);
                 break;
 
               case '/not-working':
@@ -119,15 +145,14 @@ jobs:
                     assignees: [author]
                   });
                 } catch (e) { /* ignore */ }
-                await removeLabel('status/in-progress');
-                await removeLabel('needs-triage');
+                await removeLabels(['status/in-progress', 'status/blocked', 'status/needs-review', 'status/approved', 'status/needs-info', 'status:in-progress', 'needs-review', 'approved', 'needs-info', 'needs-triage']);
                 await react('+1');
-                await reply(`🔄 @${author} has been unassigned. This issue is now available for others to pick up.`);
+                await reply(`🔄 @${author} has been unassigned. This item is available again.`);
                 break;
 
               case '/blocked':
+                await removeLabels(['status/in-progress', 'status/needs-review', 'status/approved', 'status/needs-info', 'status:in-progress', 'needs-review', 'approved', 'needs-info', 'needs-triage']);
                 await addLabel('status/blocked');
-                await removeLabel('status/in-progress');
                 await react('eyes');
                 const blockerDesc = args.length > 0 ? args.join(' ') : 'Not specified';
                 await reply(
@@ -143,13 +168,12 @@ jobs:
                   break;
                 }
                 const eta = args.join(' ');
+                await removeLabels(['status/blocked', 'status/needs-info', 'needs-info', 'needs-triage']);
                 await addLabel('status/in-progress');
-                await removeLabel('needs-triage');
                 await react('+1');
                 await reply(`⏰ @${author} estimates completion in **${eta}**.`);
                 break;
 
-              // --- Assignment ---
               case '/assign':
                 const assignee = args[0] ? args[0].replace('@', '') : author;
                 try {
@@ -178,7 +202,6 @@ jobs:
                 }
                 break;
 
-              // --- Labels ---
               case '/label':
                 if (args.length === 0) {
                   await reply('Usage: `/label <label-name>` — e.g., `/label P1-high`');
@@ -197,9 +220,9 @@ jobs:
                 await react('+1');
                 break;
 
-              // --- Priority ---
               case '/priority':
                 const validPriorities = ['P0-critical', 'P1-high', 'P2-medium', 'P3-low'];
+                const legacyPriorities = ['priority:high', 'priority:medium', 'priority:low'];
                 const pArg = args[0] ? args[0].toUpperCase() : '';
                 const pLabel = validPriorities.find(p => p.startsWith(pArg));
                 if (!pLabel) {
@@ -213,22 +236,23 @@ jobs:
                   );
                   break;
                 }
-                // Remove existing priority labels first
                 for (const p of validPriorities) { await removeLabel(p); }
+                for (const p of legacyPriorities) { await removeLabel(p); }
                 await addLabel(pLabel);
                 await react('+1');
                 break;
 
-              // --- Status ---
               case '/status':
-                const validStatuses = ['status/in-progress', 'status/blocked', 'status/needs-review', 'status/approved'];
+                const validStatuses = ['status/in-progress', 'status/blocked', 'status/needs-review', 'status/approved', 'status/needs-info'];
+                const legacyStatuses = ['status:in-progress', 'needs-review', 'approved', 'needs-info', 'needs-triage'];
                 const sArg = args[0] ? args[0].toLowerCase() : '';
                 const statusMap = {
                   'in-progress': 'status/in-progress',
                   'blocked': 'status/blocked',
                   'review': 'status/needs-review',
                   'needs-review': 'status/needs-review',
-                  'approved': 'status/approved'
+                  'approved': 'status/approved',
+                  'needs-info': 'status/needs-info'
                 };
                 const sLabel = statusMap[sArg];
                 if (!sLabel) {
@@ -238,16 +262,17 @@ jobs:
                     '| `/status in-progress` | status/in-progress |\n' +
                     '| `/status blocked` | status/blocked |\n' +
                     '| `/status review` | status/needs-review |\n' +
-                    '| `/status approved` | status/approved |'
+                    '| `/status approved` | status/approved |\n' +
+                    '| `/status needs-info` | status/needs-info |'
                   );
                   break;
                 }
                 for (const s of validStatuses) { await removeLabel(s); }
+                for (const s of legacyStatuses) { await removeLabel(s); }
                 await addLabel(sLabel);
                 await react('+1');
                 break;
 
-              // --- Close/Reopen ---
               case '/close':
                 await github.rest.issues.update({
                   owner, repo,
@@ -266,7 +291,6 @@ jobs:
                 await react('+1');
                 break;
 
-              // --- Duplicate ---
               case '/duplicate':
                 if (args[0]) {
                   const dupNum = args[0].replace('#', '');
@@ -283,16 +307,15 @@ jobs:
                 }
                 break;
 
-              // --- Help ---
               case '/help':
                 await reply(
                   '## 🤖 Bot Commands\n\n' +
-                  '### AI Commands\n' +
+                  '### Native AI Integrations\n' +
                   '| Command | Description |\n|---|---|\n' +
-                  '| `/ai-review` | Trigger AI code review (PRs only) |\n' +
-                  '| `/ai-tests` | Trigger AI test suggestions (PRs only) |\n' +
-                  '| `/plan` | Generate AI solution plan (Issues only) |\n' +
-                  '| `/replan` | Re-generate a fresh AI solution plan |\n\n' +
+                  '| `/plan` | GitHub Agentic Workflow plan breakdown (issues and discussions) |\n' +
+                  '| `/gemini review` | Gemini Code Assist review on a PR |\n' +
+                  '| `/gemini summary` | Gemini Code Assist PR summary |\n' +
+                  '| `@coderabbitai plan` | CodeRabbit planning assistance |\n\n' +
                   '### Assignment Status\n' +
                   '| Command | Description |\n|---|---|\n' +
                   '| `/working` | Confirm you are actively working on this |\n' +
@@ -311,7 +334,7 @@ jobs:
                   '| `/label <name>` | Add a label |\n' +
                   '| `/unlabel <name>` | Remove a label |\n' +
                   '| `/priority P0\\|P1\\|P2\\|P3` | Set priority |\n' +
-                  '| `/status in-progress\\|blocked\\|review\\|approved` | Set status |\n\n' +
+                  '| `/status in-progress\\|blocked\\|review\\|approved\\|needs-info` | Set status |\n\n' +
                   '---\n*Type `/help` anytime to see this menu.*'
                 );
                 break;

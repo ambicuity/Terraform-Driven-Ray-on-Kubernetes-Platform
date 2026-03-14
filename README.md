@@ -1,12 +1,8 @@
 # Terraform Module: Ray on Kubernetes (EKS)
 
-[![Terraform Validate](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/terraform-ci.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/terraform-ci.yml)
-[![TFSec](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tfsec.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tfsec.yml)
-[![TFLint](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tflint.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/tflint.yml)
-[![Checkov](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/checkov.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/checkov.yml)
-[![Kube-score](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/kube-score.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/kube-score.yml)
+[![CI](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/codeql.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/codeql.yml)
-[![Python Lint](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/python-lint.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/python-lint.yml)
+[![Gitleaks](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/actions/workflows/gitleaks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A production-grade Terraform module for provisioning a robust, autoscaling Kubernetes (EKS) cluster optimized specifically for Ray ML workloads. 
@@ -57,7 +53,7 @@ Deploy the core EKS engine and the natively-integrated Helm addons using a minim
 
 ```hcl
 module "ray_eks_cluster" {
-  source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform//terraform"
+  source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
 
   cluster_name = "production-ray-cluster"
   region       = "us-east-1"
@@ -79,6 +75,23 @@ module "ray_eks_cluster" {
   enable_oidc_thumbprint_management = false
 }
 ```
+
+Pin module consumption to a release tag. Do not point production Terraform at the repository default branch.
+
+## Repository Automation and CI
+
+This repository keeps infrastructure, workloads, policies, automation, and docs in one repo, so CI is path-scoped deliberately:
+
+- `terraform/**` and `policies/**` run infra validation only
+- `helm/**`, `workloads/**`, and `validation/**` run workload checks only
+- `scripts/**`, `tests/**`, and workflow/config changes run automation checks only
+- docs-only changes run docs metadata checks only
+
+Supported AI surfaces are:
+
+- CodeRabbit
+- Gemini Code Assist on GitHub
+- official GitHub Agentic Workflows (`gh-aw`)
 
 ## Operational Excellence
 
@@ -102,7 +115,7 @@ Deep technical reference material is located in the `docs/` directory:
 
 - [Architecture Reference](docs/architecture.md)
 - [Terraform Module Reference](docs/terraform-module.md)
-- [AI Automation Guide](docs/ai-automation.md)
+- [GitHub Automation Guide](docs/ai-automation.md)
 - [CI/CD Pipeline Catalog](docs/ci-cd-pipelines.md)
 - [Security & Compliance](docs/security.md)
 - [Multi-layer Autoscaling](docs/autoscaling.md)
@@ -191,7 +204,7 @@ No modules.
 | <a name="input_gpu_node_min_size"></a> [gpu\_node\_min\_size](#input\_gpu\_node\_min\_size) | Minimum number of GPU worker nodes | `number` | `0` | no |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | The Amazon Resource Name (ARN) of the KMS key to use for envelope encryption of Kubernetes secrets. If not provided, a new key will be created. | `string` | `""` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version for EKS | `string` | `"1.31"` | no |
-| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch log retention in days | `number` | `7` | no |
+| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch log retention in days | `number` | `365` | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS region for infrastructure deployment | `string` | `"us-east-1"` | no |
 | <a name="input_repo_name"></a> [repo\_name](#input\_repo\_name) | GitHub repository name for resource tagging | `string` | `"unknown"` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | List of subnet IDs to deploy the EKS cluster and worker nodes into (preferably private subnets) | `list(string)` | n/a | yes |

@@ -1,242 +1,74 @@
 # Security Architecture
 
-This document covers the security controls implemented across the infrastructure, CI/CD pipeline, and application layers.
+This document describes the current security model for infrastructure, workloads, and GitHub automation.
 
-## Defense-in-Depth Model
+## Identity and access
 
-```mermaid
-graph TB
-    subgraph "Layer 1: Identity & Access"
-        GA["GitHub App<br/>Short-lived tokens"]
-        OIDC["AWS OIDC Federation<br/>No static credentials"]
-        IRSA["IRSA<br/>Pod-level IAM"]
-    end
+### GitHub automation
 
-    subgraph "Layer 2: Network"
-        VPC["Private Subnets"]
-        SG["Security Groups<br/>Least-privilege egress"]
-        EP["Private EKS Endpoint"]
-    end
+- Repository workflows use the short-lived `GITHUB_TOKEN` with least-privilege permissions.
+- Official GitHub Agentic Workflows require `COPILOT_GITHUB_TOKEN`.
+- CodeRabbit and Gemini Code Assist are installed GitHub apps. They are advisory review surfaces, not merge gates.
 
-    subgraph "Layer 3: Encryption"
-        KMS["KMS Envelope Encryption<br/>Kubernetes secrets"]
-        EBS["EBS Volume Encryption"]
-        TLS["TLS in Transit"]
-    end
+The repository does not rely on repo-hosted Gemini CLI credentials, custom JWT exchange code, or long-lived GitHub application keys for normal workflow execution.
 
-    subgraph "Layer 4: Governance"
-        OPA["OPA Policies<br/>Terraform + Ray"]
-        TFSEC["tfsec / Checkov<br/>Static analysis"]
-        GL["Gitleaks<br/>Secret scanning"]
-    end
+### AWS access
 
-    subgraph "Layer 5: Instance"
-        IMDS["IMDSv2 Required"]
-        TAINT["GPU Node Taints"]
-        SEC["Pod Security Context<br/>Non-root, fsGroup"]
-    end
+- AWS access in automation should use GitHub OIDC federation.
+- [`drift-detection.yml`](../.github/workflows/drift-detection.yml) is the only remaining workflow that touches AWS directly.
+- Static AWS access keys should not be used in repository workflows.
 
-    GA --> OIDC --> IRSA
-    VPC --> SG --> EP
-    KMS --> EBS --> TLS
-    OPA --> TFSEC --> GL
-    IMDS --> TAINT --> SEC
-```
+Example trust-policy scoping:
 
----
-
-## GitHub App Authentication
-
-The project uses GitHub App Installation Tokens instead of Personal Access Tokens (PATs).
-
-| Property | GitHub App | PAT |
-|----------|-----------|-----|
-| Lifetime | 1 hour (auto-expire) | Until manually revoked |
-| Scope | Granular per-permission | User's full access |
-| Audit | App-specific trail | User-attributed |
-| Rotation | Automatic per workflow | Manual |
-| Revocation | Uninstall app | Delete token |
-
-**Flow**:
-1. Generate JWT signed with RSA private key (10-minute expiry)
-2. Exchange JWT for Installation Token via GitHub API (1-hour expiry)
-3. Use Installation Token for git ops, API calls, and OIDC cloud auth
-
-**Required secrets** (stored as GitHub Secrets):
-- `APP_ID` — Numeric app ID
-- `APP_PRIVATE_KEY` — RSA PEM private key
-- `INSTALLATION_ID` — Organization installation ID
-
-Full flow documented in [`.github/app/auth-flow.md`](../.github/app/auth-flow.md).
-Permissions breakdown in [`.github/app/permissions.md`](../.github/app/permissions.md).
-
----
-
-## AWS OIDC Federation
-
-No AWS access keys are stored in GitHub. Instead:
-
-1. GitHub Actions obtains an OIDC token from GitHub's identity provider
-2. The token is exchanged for temporary AWS credentials via `aws-actions/configure-aws-credentials`
-3. The IAM role trust policy restricts access to the specific repository
-
-```yaml
-# Example trust policy condition
-"Condition": {
-  "StringEquals": {
-    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-  },
-  "StringLike": {
-    "token.actions.githubusercontent.com:sub": "repo:ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform:*"
+```json
+{
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+    },
+    "StringLike": {
+      "token.actions.githubusercontent.com:sub": "repo:ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform:*"
+    }
   }
 }
 ```
 
----
+## Infrastructure controls
 
-## IAM Roles for Service Accounts (IRSA)
+- EKS secrets use KMS envelope encryption.
+- Launch templates enforce IMDSv2.
+- GPU nodes use taints and Spot interruption handling.
+- IRSA is preferred for cluster-level AWS access.
+- OPA policies enforce guardrails before deployment.
 
-Pods authenticate to AWS services using Kubernetes service accounts bound to IAM roles via the OIDC provider.
+## CI and policy controls
 
-| Service Account | IAM Role | Permissions |
-|----------------|----------|-------------|
-| `cluster-autoscaler` | `{cluster}-autoscaler-*` | ASG describe, scale, terminate |
-| `aws-node-termination-handler` | `{cluster}-nth-*` | SQS full access (Spot events) |
+| Control | Where it runs |
+|---|---|
+| Terraform formatting, validation, tests | `CI / infra-ci` |
+| OPA policy tests | `CI / infra-ci` |
+| Helm lint and render checks | `CI / app-ci` |
+| `kube-score` | `CI / app-ci` |
+| Python compile and tests | `CI / automation-ci` |
+| Docs consistency checks | `CI / docs-meta` |
+| CodeQL | `codeql.yml` |
+| Gitleaks | `gitleaks.yml` |
 
-The OIDC provider is created by the module (`aws_iam_openid_connect_provider.cluster`) with the EKS cluster's issuer URL.
+## Separation of concerns
 
----
+This repository intentionally keeps infrastructure and workloads in one repository. That is workable only if workflow scoping is strict. The security posture therefore depends on:
 
-## KMS Envelope Encryption
+1. path-scoped CI to reduce unnecessary blast radius
+2. pinned Terraform Git sources for downstream module consumers
+3. least-privilege workflow permissions
+4. keeping AI assistants advisory instead of merge-blocking
 
-Kubernetes secrets are encrypted at rest:
+## Review checklist
 
-- **Key type**: AES-256 via AWS KMS CMK
-- **Key rotation**: Automatic annual rotation enabled
-- **Deletion protection**: 7-day deletion window
-- **Key policy**: Root account + EKS cluster role only
+When reviewing security-sensitive changes, prioritize these questions:
 
-If no `kms_key_arn` is provided, the module creates a dedicated CMK.
-
-CloudWatch log groups use the same KMS key for encryption.
-
----
-
-## IMDSv2 Enforcement
-
-Both CPU and GPU launch templates enforce IMDSv2:
-
-```hcl
-metadata_options {
-  http_endpoint               = "enabled"
-  http_tokens                 = "required"    # IMDSv2 only
-  http_put_response_hop_limit = 1             # Block container SSRF
-}
-```
-
-This prevents SSRF-based credential theft from the EC2 metadata service.
-
----
-
-## Node Isolation
-
-### GPU Node Taints
-
-GPU nodes are tainted to prevent non-GPU workloads from consuming expensive resources:
-
-```yaml
-taint:
-  key: nvidia.com/gpu
-  value: "true"
-  effect: NoSchedule
-```
-
-Only pods with a matching toleration (e.g., Ray GPU workers) are scheduled to GPU nodes.
-
-### Security Groups
-
-- **Egress**: Limited to RFC 1918 private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-- **Ingress**: Self-referencing rule for node-to-node communication only
-- **No public ingress** by default
-
-### Cluster Endpoint
-
-- Private endpoint access: **enabled** (always)
-- Public endpoint access: **disabled** (default, configurable)
-
----
-
-## OPA Policy Enforcement
-
-Two Rego policy files provide governance guardrails:
-
-### Terraform Policy (`policies/terraform.rego`)
-
-| Rule | Description |
-|------|-------------|
-| Region restriction | Only `us-east-1`, `us-east-2`, `us-west-2`, `eu-west-1` |
-| CPU node cap | Max 20 nodes per group |
-| GPU node cap | Max 10 nodes |
-| Instance type allowlist | Specific m5/t3 (CPU) and g4dn/p3 (GPU) types |
-| EBS encryption | Must be encrypted |
-| Required tags | `ManagedBy`, `Environment`, `Repository` |
-| Private endpoint | Required when public access enabled |
-| CloudWatch logging | Must be enabled |
-| IMDSv2 | `http_tokens = required` |
-| Storage cap | Max 500 GiB per volume |
-| Autoscaling | `min_size` must differ from `max_size` |
-
-### Ray Policy (`policies/ray.rego`)
-
-| Rule | Description |
-|------|-------------|
-| CPU per worker | Max 16 |
-| Memory per worker | Max 64 GiB |
-| GPU per worker | Max 4 |
-| Total workers | Max 50 |
-| Total GPUs | Max 20 |
-| Min CPU request | 0.5 |
-| Min memory request | 0.5 GiB |
-| GPU toleration | Required for GPU workers |
-| Required labels | `ray.io/node-type`, `app` |
-
----
-
-## CI Security Gates
-
-Every PR is automatically scanned by:
-
-| Tool | Workflow | Coverage |
-|------|----------|----------|
-| **tfsec** | `tfsec.yml` | Terraform security analysis |
-| **Checkov** | `checkov.yml` | IaC policy scanning |
-| **CodeQL** | `codeql.yml` | Semantic code analysis |
-| **Gitleaks** | `gitleaks.yml` | Secret detection |
-| **Dependency Check** | `dependency-check.yml` | Vulnerability scanning |
-| **License Header** | `license-header.yml` | License compliance |
-
----
-
-## Pod Security
-
-The Ray Helm chart enforces a restrictive security context:
-
-```yaml
-securityContext:
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
-  runAsNonRoot: true
-```
-
-No pods run as root. File ownership is set to a non-privileged user.
-
----
-
-## Compliance Mapping
-
-| Framework | Controls Addressed |
-|-----------|-------------------|
-| **SOC 2 Type II** | Encryption at rest, audit logging, access controls, change management |
-| **CIS Benchmarks** | IMDSv2, private endpoints, least-privilege IAM, encryption |
-| **NIST CSF** | Identity (OIDC), Protection (KMS, SG), Detection (CloudWatch, CodeQL) |
+- Does this introduce or reintroduce static cloud credentials?
+- Does this widen a workflow trigger or permission scope unnecessarily?
+- Does this point Terraform at a moving GitHub branch instead of a pinned ref?
+- Does this couple workload-only changes to infrastructure validation or deployment?
+- Do the OPA policies still match the actual Terraform and Helm layout?

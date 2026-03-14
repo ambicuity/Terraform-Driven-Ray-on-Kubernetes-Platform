@@ -55,8 +55,6 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSVPCResourceControlle
 }
 
 # CloudWatch Log Group
-# checkov:skip=CKV_AWS_158: Default 7 days is intended for FinOps cost reduction; users can override.
-# checkov:skip=CKV_AWS_338: Log retention is parameterized to allow cost flexibility.
 resource "aws_cloudwatch_log_group" "cluster" {
   count             = var.enable_cloudwatch_logs ? 1 : 0
   name              = "/aws/eks/${var.cluster_name}/cluster"

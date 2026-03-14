@@ -84,6 +84,7 @@ Thumbs.db
 
 # OPA test coverage
 coverage.json
+.coverage
 
 # Cost reports (kept in artifacts only)
 cost-report-*.md
@@ -91,3 +92,6 @@ cost-report-*.md
 # Workload outputs
 workload-metrics.json
 workload-output.log
+
+# Local validation toolchain
+.tmp-tools/

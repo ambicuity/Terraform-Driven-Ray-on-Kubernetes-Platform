@@ -10,7 +10,7 @@ updates:
   
   # Maintain dependencies for Terraform
   - package-ecosystem: "terraform"
-    directory: "/"
+    directory: "/terraform"
     schedule:
       interval: "weekly"
     commit-message:
@@ -18,7 +18,7 @@ updates:
 
   # Maintain dependencies for Terraform examples
   - package-ecosystem: "terraform"
-    directory: "/examples/complete"
+    directory: "/terraform/examples/complete"
     schedule:
       interval: "weekly"
     commit-message:

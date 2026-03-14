@@ -47,7 +47,7 @@ Complete reference for the `Terraform-Driven-Ray-on-Kubernetes-Platform` module.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `kubernetes_version` | `string` | `"1.28"` | Kubernetes version |
+| `kubernetes_version` | `string` | `"1.31"` | Kubernetes version |
 | `kms_key_arn` | `string` | `""` | KMS key ARN for secret encryption. Empty → creates new key |
 | `cluster_endpoint_public_access` | `bool` | `false` | Enable public endpoint access |
 | `eks_addons` | `map(any)` | vpc-cni, kube-proxy, coredns | EKS managed addons |
@@ -56,7 +56,7 @@ Complete reference for the `Terraform-Driven-Ray-on-Kubernetes-Platform` module.
 
 | Variable | Type | Default | Validation |
 |----------|------|---------|------------|
-| `cpu_node_instance_types` | `list(string)` | `["m5.xlarge", "m5.2xlarge"]` | — |
+| `cpu_node_instance_types` | `list(string)` | `["m6g.xlarge", "m6g.2xlarge"]` | — |
 | `cpu_node_min_size` | `number` | `2` | 1–10 |
 | `cpu_node_max_size` | `number` | `10` | 1–20 |
 | `cpu_node_desired_size` | `number` | `3` | — |
@@ -80,7 +80,7 @@ Complete reference for the `Terraform-Driven-Ray-on-Kubernetes-Platform` module.
 | `enable_ebs_csi_driver` | `bool` | `true` | Attach EBS CSI IAM policy to node role |
 | `enable_cluster_autoscaler` | `bool` | `true` | Create Cluster Autoscaler IRSA role |
 | `enable_cloudwatch_logs` | `bool` | `true` | Ship control plane logs to CloudWatch |
-| `log_retention_days` | `number` | `7` | CloudWatch log retention |
+| `log_retention_days` | `number` | `365` | CloudWatch log retention |
 | `tags` | `map(string)` | `{}` | Additional tags for all resources |
 
 ## Outputs
@@ -134,13 +134,23 @@ Complete reference for the `Terraform-Driven-Ray-on-Kubernetes-Platform` module.
 | `resource_tags` | Merged tag map |
 | `estimated_monthly_cost` | Approximate cost string |
 
+## Consumer Pinning
+
+When consuming this repository directly from GitHub, pin the module to a tag:
+
+```hcl
+source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
+```
+
+Do not use a floating `source = "github.com/..."` reference in production.
+
 ## Usage Examples
 
 ### Minimal
 
 ```hcl
 module "ray_eks_cluster" {
-  source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform"
+  source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
 
   cluster_name = "my-ray-cluster"
   region       = "us-east-1"
@@ -153,7 +163,7 @@ module "ray_eks_cluster" {
 
 ```hcl
 module "ray_eks_cluster" {
-  source = "github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform"
+  source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
 
   cluster_name = "prod-ray-cluster"
   region       = "us-east-1"
@@ -185,6 +195,8 @@ See [`examples/complete/`](../terraform/examples/complete/) for a fully runnable
 - VPC provisioning via `terraform-aws-modules/vpc/aws`
 - Cluster Autoscaler Helm chart
 - KubeRay Operator Helm chart
+
+This example intentionally keeps infrastructure and workload add-ons in one Terraform stack. The repository mitigates the blast radius of that choice with path-scoped CI rather than a repo split.
 
 ## Testing
 
