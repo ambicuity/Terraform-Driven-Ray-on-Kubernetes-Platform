@@ -2,8 +2,7 @@ name: Stale Issue & PR Bot
 
 on:
   schedule:
-    # Run daily at 02:00 UTC
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -17,30 +16,27 @@ jobs:
     steps:
       - uses: actions/stale@v9
         with:
-          # ── Issues ──────────────────────────────────────────────────
-          days-before-issue-stale: 30
-          days-before-issue-close: 7
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
           stale-issue-label: 'stale'
           stale-issue-message: >
             This issue has been automatically marked as stale because it has not
-            had any activity for 30 days. It will be closed in 7 days unless
+            had any activity for 60 days. It will be closed in 14 days unless
             further activity occurs. Comment or add the `keep-open` label to
             prevent closure.
           close-issue-message: >
             This issue was automatically closed due to inactivity.
             Please reopen if it is still relevant.
-          # ── Pull Requests ────────────────────────────────────────────
-          days-before-pr-stale: 14
-          days-before-pr-close: 7
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
           stale-pr-label: 'stale'
           stale-pr-message: >
             This PR has been automatically marked as stale because it has not
-            had any activity for 14 days. It will be closed in 7 days unless
+            had any activity for 30 days. It will be closed in 14 days unless
             revived by a push, review, or comment.
           close-pr-message: >
             This PR was automatically closed due to inactivity. Please reopen
             if you intend to continue the work.
-          # ── Global exemptions ────────────────────────────────────────
-          exempt-issue-labels: 'keep-open,pinned,security,in-progress'
-          exempt-pr-labels: 'keep-open,pinned,in-progress'
+          exempt-issue-labels: 'keep-open,pinned,security,in-progress,status/in-progress,status/blocked,status/needs-info,good first issue,beginner,intermediate,advanced'
+          exempt-pr-labels: 'keep-open,pinned,security,in-progress,status/in-progress'
           exempt-all-assignees: true

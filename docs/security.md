@@ -7,10 +7,9 @@ This document describes the current security model for infrastructure, workloads
 ### GitHub automation
 
 - Repository workflows use the short-lived `GITHUB_TOKEN` with least-privilege permissions.
-- Official GitHub Agentic Workflows require `COPILOT_GITHUB_TOKEN`.
 - CodeRabbit and Gemini Code Assist are installed GitHub apps. They are advisory review surfaces, not merge gates.
 
-The repository does not rely on repo-hosted Gemini CLI credentials, custom JWT exchange code, or long-lived GitHub application keys for normal workflow execution.
+The repository does not rely on repo-owned AI workflows, custom Gemini CLI credentials, or long-lived GitHub application keys for normal workflow execution.
 
 ### AWS access
 

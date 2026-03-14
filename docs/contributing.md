@@ -38,22 +38,17 @@ python -m compileall scripts tests
 python -m pytest tests -q
 ```
 
+If you changed GitHub Actions workflows, also run:
+
+```bash
+actionlint
+```
+
 ## Pull requests
 
 - Use a Conventional Commit title such as `fix: scope CI for Terraform-only changes`.
 - Describe what changed, why it changed, and how you tested it.
-- Use `/gemini review` or `@coderabbitai review` when you want advisory AI feedback.
-
-## Repository commands
-
-| Command | Purpose |
-|---|---|
-| `/assign` | Assign yourself or another contributor |
-| `/working` | Mark the issue as active |
-| `/eta 2 days` | Share an ETA |
-| `/blocked <reason>` | Mark work as blocked |
-| `/not-working` | Drop the assignment |
-| `/plan` | Ask the official planning workflow to create linked task issues |
+- Use CodeRabbit or Gemini Code Assist only if you want optional advisory feedback.
 
 ## AI policy
 
@@ -61,6 +56,5 @@ The supported AI surfaces are:
 
 - CodeRabbit
 - Gemini Code Assist on GitHub
-- official GitHub Agentic Workflows
 
-Do not add custom Gemini CLI subagents, hidden queue files, or repo-hosted autonomous PR bots back into this repository.
+Repo-owned AI workflows and autonomous PR bots are intentionally disabled in favor of a small deterministic CI surface.

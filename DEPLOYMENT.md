@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This document describes how to run the test suite locally, deploy the EKS cluster, and operate the AI agent system.
+This document describes how to run the test suite locally, deploy the EKS cluster, and configure the remaining GitHub-side operations hooks.
 
 ---
 
@@ -42,24 +42,18 @@ pytest tests/ -v --tb=short --cov=scripts --cov-report=term-missing
 
 ---
 
-## 3. Configure Environment Secrets
+## 3. Optional GitHub-Side Secrets
 
-Create `.env.local` in the repo root (already in `.gitignore`) for local testing:
+Local development and test runs do not require repository secrets.
 
-```bash
-cp .env.example .env.local
-# Then edit .env.local with your values
-```
-
-Required secrets:
+The only repository secrets used by the kept workflows are for optional scheduled drift detection:
 
 | Variable | Description |
 |---|---|
-| `GEMINI_API_KEY` | Google Gemini API key (free tier supports Flash model) |
-| `GITHUB_TOKEN` | Personal Access Token with `repo` scope |
-| `GITHUB_REPOSITORY` | `owner/repo` format, e.g. `ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform` |
+| `AWS_ROLE_ARN` | IAM role to assume through GitHub OIDC |
+| `AWS_REGION` | AWS region for drift detection |
 
-For GitHub Actions, set these in **Settings → Secrets and variables → Actions**.
+If these secrets are not configured, the `drift-detection.yml` workflow skips cleanly and exits green.
 
 ---
 
@@ -176,15 +170,27 @@ python3 validation/test_memory_spill.py
 
 ---
 
-## 9. Configure Branch Protection (Recommended)
+## 9. Configure Ruleset Protection (Recommended)
 
-To enforce the new CI pipeline as a required gate on all PRs:
+The repository keeps the ruleset JSON in version control:
 
-1. Go to **Settings → Branches → Branch protection rules → Add rule**
-2. Branch pattern: `main`
-3. Enable **Require status checks to pass before merging**
-4. Add required check: `CI — All Checks Passed`
-5. Enable **Dismiss stale pull request approvals when new commits are pushed**
+- `update_ruleset.json`
+- `disable_ruleset.json`
+
+The active ruleset should require only these checks on `main`:
+
+- `CI Summary`
+- `Secret Detection`
+- `CodeQL Analyze (python)`
+
+Apply the tracked ruleset with the GitHub CLI:
+
+```bash
+gh api \
+  --method PUT \
+  repos/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform/rulesets/13113148 \
+  --input update_ruleset.json
+```
 
 ---
 
