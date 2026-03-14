@@ -61,12 +61,19 @@ helm upgrade --install ray-cluster ./helm/ray -n ray-system
 ## Local Validation
 
 ```bash
-make lint
-make test
-./local_test.sh
+make evidence
 ```
 
-`local_test.sh` deploys the real `helm/ray` chart on minikube and exercises the chart-backed path rather than a separate handwritten manifest.
+`make evidence` saves the bootstrap transcript, deterministic checks, supported-claim audit, and the chart-backed `./local_test.sh` run under `tests/evidence/`.
+
+If you want to run only the quicker deterministic subset first:
+
+```bash
+make lint
+make test
+```
+
+`local_test.sh` still deploys the real `helm/ray` chart on minikube and exercises the chart-backed path rather than a separate handwritten manifest.
 
 ## Troubleshooting
 

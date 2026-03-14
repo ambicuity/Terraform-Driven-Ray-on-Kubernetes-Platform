@@ -1,0 +1,27 @@
+# Bootstrap local prerequisites
+# Command: bash tests/evidence/bootstrap_local.sh
+
+Preparing local prerequisites for the committed evidence workflow
+Repository root: /Users/ritesh/Downloads/submission_folder/fork/Terraform-Driven-Ray-on-Kubernetes-Platform
+[ok] python3 available at /opt/homebrew/bin/python3
+[ok] helm available at /opt/homebrew/bin/helm
+[ok] kubectl available at /opt/homebrew/bin/kubectl
+[ok] minikube available at /opt/homebrew/bin/minikube
+[ok] actionlint available at /opt/homebrew/bin/actionlint
+[ok] shellcheck available at /opt/homebrew/bin/shellcheck
+[ok] colima available at /opt/homebrew/bin/colima
+[ok] docker available at /opt/homebrew/bin/docker
+[ok] using bundled terraform at .tmp-tools/bin/terraform-1.9.8
+[ok] using bundled opa at .tmp-tools/bin/opa-0.63.0
+[version] python3: Python 3.13.5
+[version] helm: v4.1.1+g5caf004
+[version] kubectl: clientVersion:
+[version] minikube: minikube version: v1.38.1
+[version] actionlint: 1.7.11
+[version] shellcheck: ShellCheck - shell script analysis tool
+[version] bundled terraform: Terraform v1.9.8
+[version] bundled opa: Version: 0.63.0
+[ok] colima is already running
+Bootstrap complete.
+
+# Exit code: 0

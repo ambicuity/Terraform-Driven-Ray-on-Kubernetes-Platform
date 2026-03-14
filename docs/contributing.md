@@ -12,11 +12,20 @@
 Preferred:
 
 ```bash
-make lint
-make test
+make evidence
 ```
 
 Equivalent direct commands:
+
+```bash
+./tests/evidence/bootstrap_local.sh
+make lint
+make test
+python3 tests/evidence/check_supported_claims.py
+./local_test.sh
+```
+
+Faster deterministic subset only:
 
 ```bash
 ./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform init -backend=false
@@ -28,7 +37,7 @@ Equivalent direct commands:
 helm lint helm/ray
 helm template ray-ci helm/ray >/tmp/ray-rendered.yaml
 actionlint -color
-shellcheck local_test.sh validation/*.sh
+shellcheck local_test.sh validation/*.sh tests/evidence/*.sh
 python3 -m compileall scripts tests workloads validation
 pytest tests -q
 ```
@@ -44,6 +53,7 @@ pytest tests -q
 
 - Use a Conventional Commit title
 - Describe what changed, why it changed, and how you tested it
+- When you make repo-wide claims, link the saved evidence files under `tests/evidence/`
 - Use CodeRabbit or Gemini Code Assist on GitHub only if you want optional advisory feedback
 
 ## AI Policy

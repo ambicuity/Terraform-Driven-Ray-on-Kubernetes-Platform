@@ -1,0 +1,35 @@
+# Deterministic lint checks
+# Command: make lint
+
+--- Terraform fmt ---
+--- Helm lint ---
+==> Linting helm/ray
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+--- Helm render ---
+--- Actionlint ---
+--- Shellcheck ---
+--- Python compileall ---
+Listing 'scripts'...
+Listing 'tests'...
+Listing 'tests/evidence'...
+Listing 'tests/fixtures'...
+Listing 'workloads'...
+Listing 'validation'...
+--- OPA tests ---
+policies/cost_governance_test.rego:
+data.terraform.test_expensive_instance_denied: PASS (3.543ms)
+data.terraform.test_standard_instance_allowed: PASS (356.708µs)
+data.terraform.test_budget_limit_denied: PASS (245.958µs)
+
+policies/terraform_test.rego:
+data.terraform.test_launch_templates_require_imdsv2: PASS (982.625µs)
+data.terraform.test_launch_templates_require_encryption: PASS (349.792µs)
+data.terraform.test_spot_gpu_requires_fallback: PASS (520.791µs)
+data.terraform.test_spot_gpu_with_fallback_allowed: PASS (1.286583ms)
+data.terraform.test_public_endpoint_requires_private_access: PASS (185.5µs)
+--------------------------------------------------------------------------------
+PASS: 8/8
+
+# Exit code: 0

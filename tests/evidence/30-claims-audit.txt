@@ -1,0 +1,18 @@
+# Supported claims audit
+# Command: python3 tests/evidence/check_supported_claims.py
+
+# Supported Claim Audit
+
+| Claim | Result | Evidence | Detail |
+| --- | --- | --- | --- |
+| Launch templates are attached to the managed node groups. | `PASS` | `terraform/node_pools.tf + terraform/module.tftest.hcl` | CPU, primary GPU, and fallback GPU node groups all declare launch templates and Terraform tests assert the CPU and primary GPU attachments. |
+| Spot GPU mode keeps an On-Demand fallback path. | `PASS` | `terraform/module.tftest.hcl + policies/terraform_test.rego` | Terraform module tests assert the fallback node group and OPA tests deny a Spot-only GPU plan without it. |
+| OIDC thumbprint drift is handled explicitly. | `PASS` | `terraform/main.tf` | The module keeps separate managed and unmanaged OIDC provider resources and ignores AWS-populated thumbprint drift on the unmanaged path. |
+| The chart renders explicit head probes and a preStop hook. | `PASS` | `helm template helm/ray --values validation/local-chart-values.yaml` | The locally rendered RayCluster manifest includes readiness and liveness probes plus a preStop lifecycle hook for the head pod. |
+| The chart renders a PodDisruptionBudget for CPU workers. | `PASS` | `helm template helm/ray --values validation/local-chart-values.yaml` | The local chart render includes a PodDisruptionBudget with minAvailable set for CPU workers. |
+| The cluster identity safeguard is implemented and unit-tested. | `PASS` | `scripts/validate_cluster_identity.py + tests/test_validate_cluster_identity.py` | The script fingerprints the kube-system namespace UID and the unit tests cover kubeconfig and exit-code behavior. |
+| Deterministic local and CI entrypoints are defined in-repo. | `PASS` | `Makefile + .github/workflows/ci.yml + local_test.sh` | The Makefile exposes lint/test/evidence, CI stays path-scoped, and local_test.sh installs the real chart into minikube. |
+
+Audit passed: every supported claim in the matrix is backed by code or deterministic structure.
+
+# Exit code: 0

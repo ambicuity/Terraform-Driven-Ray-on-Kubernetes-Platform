@@ -45,6 +45,7 @@ venv/
 ENV/
 env/
 .venv
+.venv-ray-test/
 
 # IDE
 .vscode/

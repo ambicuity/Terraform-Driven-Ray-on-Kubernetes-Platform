@@ -1,0 +1,296 @@
+# Chart-backed local cluster validation
+# Command: ./local_test.sh
+
+
+══════════════════════════════════════
+  Step 1 — Installing / verifying dependencies
+══════════════════════════════════════
+ℹ  Host architecture is arm64. Selected Ray Image: rayproject/ray:2.9.3-py310-aarch64
+✅ minikube already installed (/opt/homebrew/bin/minikube)
+✅ helm already installed (/opt/homebrew/bin/helm)
+✅ kubectl already installed (/opt/homebrew/bin/kubectl)
+✅ python3 already installed (/opt/homebrew/bin/python3)
+✅ Python dependencies ready.
+ℹ  Colima not running — starting it (4 CPU, 6 GB, vz+rosetta)…
+time="2026-03-14T13:27:20-05:00" level=warning msg="already running, ignoring"
+✅ Colima started.
+ℹ  Adjusted minikube memory to 5654MB to fit the active Docker runtime.
+
+══════════════════════════════════════
+  Step 2 — Starting minikube (ray-local)
+══════════════════════════════════════
+✅ Minikube profile ray-local already running.
+Kubernetes control plane is running at https://127.0.0.1:32771
+CoreDNS is running at https://127.0.0.1:32771/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+══════════════════════════════════════
+  Step 3 — Installing KubeRay Operator v1.1.1
+══════════════════════════════════════
+"kuberay" has been added to your repositories
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "kuberay" chart repository
+Update Complete. ⎈Happy Helming!⎈
+✅ KubeRay operator already installed; upgrading if needed…
+Release "kuberay-operator" has been upgraded. Happy Helming!
+NAME: kuberay-operator
+LAST DEPLOYED: Sat Mar 14 13:27:22 2026
+NAMESPACE: ray-system
+STATUS: deployed
+REVISION: 10
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+
+══════════════════════════════════════
+  Step 4 — Deploying RayCluster (ray-cluster)
+══════════════════════════════════════
+ℹ  Removing existing Ray chart release to avoid stale RayCluster fields…
+NAME: ray-cluster
+LAST DEPLOYED: Sat Mar 14 13:27:55 2026
+NAMESPACE: ray-system
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+✅ RayCluster chart installed.
+
+══════════════════════════════════════
+  Step 5 — Waiting for Ray head pod (timeout=180s)
+══════════════════════════════════════
+ℹ  Waiting for KubeRay to create the head pod…
+ℹ  Head pod created. Waiting for Ready condition…
+pod/ray-cluster-head-tx67g condition met
+✅ Head pod ready: ray-cluster-head-tx67g
+ℹ  Waiting for KubeRay to create the worker pod…
+pod/ray-cluster-worker-cpu-group-t4sjt condition met
+✅ Worker pod ready.
+ℹ  Allowing 15s for raylets to register in GCS…
+
+══════════════════════════════════════
+  Step 6 — Synthetic Validations
+══════════════════════════════════════
+ℹ  Running: Cluster connectivity
+✅ PASS — Cluster connectivity
+ℹ  Running: KubeRay operator pod running
+✅ PASS — KubeRay operator pod running
+ℹ  Running: RayCluster CRD registered
+✅ PASS — RayCluster CRD registered
+ℹ  Running: Ray GCS server listening on head pod
+✅ PASS — Ray GCS server listening on head pod
+ℹ  Running: Ray Dashboard HTTP (8265) reachable
+✅ PASS — Ray Dashboard HTTP (8265) reachable
+ℹ  Running: Ray remote task execution (python client)
+Defaulted container "ray-head" out of: ray-head, autoscaler
+I0314 13:29:15.882847   36715 log.go:244] (0x140001e2630) (0x1400055e3c0) Create stream
+I0314 13:29:15.882942   36715 log.go:244] (0x140001e2630) (0x1400055e3c0) Stream added, broadcasting: 1
+I0314 13:29:15.887117   36715 log.go:244] (0x140001e2630) Reply frame received for 1
+I0314 13:29:15.887143   36715 log.go:244] (0x140001e2630) (0x14000906000) Create stream
+I0314 13:29:15.887147   36715 log.go:244] (0x140001e2630) (0x14000906000) Stream added, broadcasting: 3
+I0314 13:29:15.888013   36715 log.go:244] (0x140001e2630) Reply frame received for 3
+I0314 13:29:15.888024   36715 log.go:244] (0x140001e2630) (0x1400055e000) Create stream
+I0314 13:29:15.888027   36715 log.go:244] (0x140001e2630) (0x1400055e000) Stream added, broadcasting: 5
+I0314 13:29:15.888768   36715 log.go:244] (0x140001e2630) Reply frame received for 5
+I0314 13:29:16.146219   36715 log.go:244] (0x140001e2630) Data frame received for 5
+I0314 13:29:16.146228   36715 log.go:244] (0x1400055e000) (5) Data frame handling
+I0314 13:29:16.146231   36715 log.go:244] (0x1400055e000) (5) Data frame sent
+2026-03-14 11:29:16,211	INFO worker.py:1405 -- Using address 127.0.0.1:6379 set in the environment variable RAY_ADDRESS
+I0314 13:29:16.146247   36715 log.go:244] (0x140001e2630) Data frame received for 5
+I0314 13:29:16.146253   36715 log.go:244] (0x1400055e000) (5) Data frame handling
+I0314 13:29:16.146260   36715 log.go:244] (0x1400055e000) (5) Data frame sent
+2026-03-14 11:29:16,212	INFO worker.py:1540 -- Connecting to existing Ray cluster at address: 10.244.0.17:6379...
+I0314 13:29:16.151179   36715 log.go:244] (0x140001e2630) Data frame received for 5
+I0314 13:29:16.151187   36715 log.go:244] (0x1400055e000) (5) Data frame handling
+I0314 13:29:16.151190   36715 log.go:244] (0x1400055e000) (5) Data frame sent
+2026-03-14 11:29:16,216	INFO worker.py:1715 -- Connected to Ray cluster. View the dashboard at 10.244.0.17:8265 
+I0314 13:29:17.317052   36715 log.go:244] (0x140001e2630) (0x1400055e000) Stream removed, broadcasting: 5
+I0314 13:29:17.317079   36715 log.go:244] (0x140001e2630) (0x14000906000) Stream removed, broadcasting: 3
+I0314 13:29:17.317099   36715 log.go:244] (0x140001e2630) Data frame received for 1
+I0314 13:29:17.317110   36715 log.go:244] (0x1400055e3c0) (1) Data frame handling
+I0314 13:29:17.317115   36715 log.go:244] (0x1400055e3c0) (1) Data frame sent
+I0314 13:29:17.317118   36715 log.go:244] (0x140001e2630) (0x1400055e3c0) Stream removed, broadcasting: 1
+I0314 13:29:17.317121   36715 log.go:244] (0x140001e2630) Go away received
+I0314 13:29:17.317265   36715 log.go:244] (0x140001e2630) (0x1400055e3c0) Stream removed, broadcasting: 1
+I0314 13:29:17.317270   36715 log.go:244] (0x140001e2630) (0x14000906000) Stream removed, broadcasting: 3
+I0314 13:29:17.317273   36715 log.go:244] (0x140001e2630) (0x1400055e000) Stream removed, broadcasting: 5
+✅ PASS — Ray remote task execution (python client)
+ℹ  Running: Object store memory > 0 (python client)
+Defaulted container "ray-head" out of: ray-head, autoscaler
+I0314 13:29:17.429039   36747 log.go:244] (0x14000172580) (0x14000545ea0) Create stream
+I0314 13:29:17.429155   36747 log.go:244] (0x14000172580) (0x14000545ea0) Stream added, broadcasting: 1
+I0314 13:29:17.431071   36747 log.go:244] (0x14000172580) Reply frame received for 1
+I0314 13:29:17.431086   36747 log.go:244] (0x14000172580) (0x14000642dc0) Create stream
+I0314 13:29:17.431090   36747 log.go:244] (0x14000172580) (0x14000642dc0) Stream added, broadcasting: 3
+I0314 13:29:17.432072   36747 log.go:244] (0x14000172580) Reply frame received for 3
+I0314 13:29:17.432081   36747 log.go:244] (0x14000172580) (0x14000606000) Create stream
+I0314 13:29:17.432083   36747 log.go:244] (0x14000172580) (0x14000606000) Stream added, broadcasting: 5
+I0314 13:29:17.433111   36747 log.go:244] (0x14000172580) Reply frame received for 5
+I0314 13:29:17.648121   36747 log.go:244] (0x14000172580) Data frame received for 5
+I0314 13:29:17.648135   36747 log.go:244] (0x14000606000) (5) Data frame handling
+I0314 13:29:17.648144   36747 log.go:244] (0x14000606000) (5) Data frame sent
+2026-03-14 11:29:17,713	INFO worker.py:1405 -- Using address 127.0.0.1:6379 set in the environment variable RAY_ADDRESS
+I0314 13:29:17.648551   36747 log.go:244] (0x14000172580) Data frame received for 5
+I0314 13:29:17.648561   36747 log.go:244] (0x14000606000) (5) Data frame handling
+I0314 13:29:17.648564   36747 log.go:244] (0x14000606000) (5) Data frame sent
+2026-03-14 11:29:17,713	INFO worker.py:1540 -- Connecting to existing Ray cluster at address: 10.244.0.17:6379...
+I0314 13:29:17.653980   36747 log.go:244] (0x14000172580) Data frame received for 5
+I0314 13:29:17.653990   36747 log.go:244] (0x14000606000) (5) Data frame handling
+I0314 13:29:17.653993   36747 log.go:244] (0x14000606000) (5) Data frame sent
+2026-03-14 11:29:17,719	INFO worker.py:1715 -- Connected to Ray cluster. View the dashboard at 10.244.0.17:8265 
+I0314 13:29:18.366464   36747 log.go:244] (0x14000172580) Data frame received for 3
+I0314 13:29:18.366499   36747 log.go:244] (0x14000642dc0) (3) Data frame handling
+I0314 13:29:18.366507   36747 log.go:244] (0x14000642dc0) (3) Data frame sent
+1.07 GB
+I0314 13:29:18.411308   36747 log.go:244] (0x14000172580) (0x14000642dc0) Stream removed, broadcasting: 3
+I0314 13:29:18.411328   36747 log.go:244] (0x14000172580) Data frame received for 1
+I0314 13:29:18.411334   36747 log.go:244] (0x14000545ea0) (1) Data frame handling
+I0314 13:29:18.411338   36747 log.go:244] (0x14000545ea0) (1) Data frame sent
+I0314 13:29:18.411368   36747 log.go:244] (0x14000172580) (0x14000545ea0) Stream removed, broadcasting: 1
+I0314 13:29:18.411378   36747 log.go:244] (0x14000172580) (0x14000606000) Stream removed, broadcasting: 5
+I0314 13:29:18.411666   36747 log.go:244] (0x14000172580) Go away received
+I0314 13:29:18.411738   36747 log.go:244] (0x14000172580) (0x14000606000) Stream removed, broadcasting: 5
+I0314 13:29:18.411745   36747 log.go:244] (0x14000172580) (0x14000545ea0) Stream removed, broadcasting: 1
+I0314 13:29:18.411747   36747 log.go:244] (0x14000172580) (0x14000642dc0) Stream removed, broadcasting: 3
+✅ PASS — Object store memory > 0 (python client)
+ℹ  Running: Worker raylets registered in cluster (python client)
+Defaulted container "ray-head" out of: ray-head, autoscaler
+I0314 13:29:18.489421   36774 log.go:244] (0x140000f8580) (0x1400030abe0) Create stream
+I0314 13:29:18.489541   36774 log.go:244] (0x140000f8580) (0x1400030abe0) Stream added, broadcasting: 1
+I0314 13:29:18.490710   36774 log.go:244] (0x140000f8580) Reply frame received for 1
+I0314 13:29:18.490721   36774 log.go:244] (0x140000f8580) (0x1400030ac80) Create stream
+I0314 13:29:18.490723   36774 log.go:244] (0x140000f8580) (0x1400030ac80) Stream added, broadcasting: 3
+I0314 13:29:18.491477   36774 log.go:244] (0x140000f8580) Reply frame received for 3
+I0314 13:29:18.491487   36774 log.go:244] (0x140000f8580) (0x1400054c000) Create stream
+I0314 13:29:18.491490   36774 log.go:244] (0x140000f8580) (0x1400054c000) Stream added, broadcasting: 5
+I0314 13:29:18.492382   36774 log.go:244] (0x140000f8580) Reply frame received for 5
+I0314 13:29:18.679954   36774 log.go:244] (0x140000f8580) Data frame received for 5
+I0314 13:29:18.679965   36774 log.go:244] (0x1400054c000) (5) Data frame handling
+I0314 13:29:18.679969   36774 log.go:244] (0x1400054c000) (5) Data frame sent
+I0314 13:29:18.679970   36774 log.go:244] (0x140000f8580) Data frame received for 5
+I0314 13:29:18.679972   36774 log.go:244] (0x1400054c000) (5) Data frame handling
+2026-03-14 11:29:18,745	INFO worker.py:1405 -- Using address 127.0.0.1:6379 set in the environment variable RAY_ADDRESS
+2026-03-14 11:29:18,745	INFO worker.py:1540 -- Connecting to existing Ray cluster at address: 10.244.0.17:6379...
+I0314 13:29:18.680011   36774 log.go:244] (0x1400054c000) (5) Data frame sent
+I0314 13:29:18.683544   36774 log.go:244] (0x140000f8580) Data frame received for 5
+I0314 13:29:18.683552   36774 log.go:244] (0x1400054c000) (5) Data frame handling
+I0314 13:29:18.683555   36774 log.go:244] (0x1400054c000) (5) Data frame sent
+2026-03-14 11:29:18,749	INFO worker.py:1715 -- Connected to Ray cluster. View the dashboard at 10.244.0.17:8265 
+I0314 13:29:19.392582   36774 log.go:244] (0x140000f8580) Data frame received for 3
+I0314 13:29:19.392616   36774 log.go:244] (0x1400030ac80) (3) Data frame handling
+I0314 13:29:19.392638   36774 log.go:244] (0x1400030ac80) (3) Data frame sent
+Alive nodes: 2
+I0314 13:29:19.442807   36774 log.go:244] (0x140000f8580) Data frame received for 1
+I0314 13:29:19.442819   36774 log.go:244] (0x140000f8580) (0x1400054c000) Stream removed, broadcasting: 5
+I0314 13:29:19.442862   36774 log.go:244] (0x1400030abe0) (1) Data frame handling
+I0314 13:29:19.442871   36774 log.go:244] (0x140000f8580) (0x1400030ac80) Stream removed, broadcasting: 3
+I0314 13:29:19.442880   36774 log.go:244] (0x1400030abe0) (1) Data frame sent
+I0314 13:29:19.442888   36774 log.go:244] (0x140000f8580) (0x1400030abe0) Stream removed, broadcasting: 1
+I0314 13:29:19.442891   36774 log.go:244] (0x140000f8580) Go away received
+I0314 13:29:19.443028   36774 log.go:244] (0x140000f8580) (0x1400054c000) Stream removed, broadcasting: 5
+I0314 13:29:19.443031   36774 log.go:244] (0x140000f8580) (0x1400030abe0) Stream removed, broadcasting: 1
+I0314 13:29:19.443040   36774 log.go:244] (0x140000f8580) (0x1400030ac80) Stream removed, broadcasting: 3
+✅ PASS — Worker raylets registered in cluster (python client)
+ℹ  Running: Parallel Ray task fan-out (python client)
+Defaulted container "ray-head" out of: ray-head, autoscaler
+I0314 13:29:19.539047   36775 log.go:244] (0x14000554160) (0x1400063ed20) Create stream
+I0314 13:29:19.539163   36775 log.go:244] (0x14000554160) (0x1400063ed20) Stream added, broadcasting: 1
+I0314 13:29:19.541147   36775 log.go:244] (0x14000554160) Reply frame received for 1
+I0314 13:29:19.541160   36775 log.go:244] (0x14000554160) (0x1400063edc0) Create stream
+I0314 13:29:19.541163   36775 log.go:244] (0x14000554160) (0x1400063edc0) Stream added, broadcasting: 3
+I0314 13:29:19.542341   36775 log.go:244] (0x14000554160) Reply frame received for 3
+I0314 13:29:19.542349   36775 log.go:244] (0x14000554160) (0x1400063ee60) Create stream
+I0314 13:29:19.542351   36775 log.go:244] (0x14000554160) (0x1400063ee60) Stream added, broadcasting: 5
+I0314 13:29:19.543159   36775 log.go:244] (0x14000554160) Reply frame received for 5
+I0314 13:29:19.799539   36775 log.go:244] (0x14000554160) Data frame received for 5
+I0314 13:29:19.799550   36775 log.go:244] (0x1400063ee60) (5) Data frame handling
+I0314 13:29:19.799554   36775 log.go:244] (0x1400063ee60) (5) Data frame sent
+I0314 13:29:19.799556   36775 log.go:244] (0x14000554160) Data frame received for 5
+I0314 13:29:19.799558   36775 log.go:244] (0x1400063ee60) (5) Data frame handling
+2026-03-14 11:29:19,864	INFO worker.py:1405 -- Using address 127.0.0.1:6379 set in the environment variable RAY_ADDRESS
+2026-03-14 11:29:19,865	INFO worker.py:1540 -- Connecting to existing Ray cluster at address: 10.244.0.17:6379...
+I0314 13:29:19.799573   36775 log.go:244] (0x1400063ee60) (5) Data frame sent
+I0314 13:29:19.805784   36775 log.go:244] (0x14000554160) Data frame received for 5
+I0314 13:29:19.805792   36775 log.go:244] (0x1400063ee60) (5) Data frame handling
+I0314 13:29:19.805795   36775 log.go:244] (0x1400063ee60) (5) Data frame sent
+2026-03-14 11:29:19,871	INFO worker.py:1715 -- Connected to Ray cluster. View the dashboard at 10.244.0.17:8265 
+I0314 13:29:21.143655   36775 log.go:244] (0x14000554160) Data frame received for 1
+I0314 13:29:21.143667   36775 log.go:244] (0x14000554160) (0x1400063ee60) Stream removed, broadcasting: 5
+I0314 13:29:21.143716   36775 log.go:244] (0x1400063ed20) (1) Data frame handling
+I0314 13:29:21.143735   36775 log.go:244] (0x1400063ed20) (1) Data frame sent
+I0314 13:29:21.143739   36775 log.go:244] (0x14000554160) (0x1400063edc0) Stream removed, broadcasting: 3
+I0314 13:29:21.143760   36775 log.go:244] (0x14000554160) (0x1400063ed20) Stream removed, broadcasting: 1
+I0314 13:29:21.143769   36775 log.go:244] (0x14000554160) Go away received
+I0314 13:29:21.144453   36775 log.go:244] (0x14000554160) (0x1400063ed20) Stream removed, broadcasting: 1
+I0314 13:29:21.144495   36775 log.go:244] (0x14000554160) (0x1400063edc0) Stream removed, broadcasting: 3
+I0314 13:29:21.144500   36775 log.go:244] (0x14000554160) (0x1400063ee60) Stream removed, broadcasting: 5
+✅ PASS — Parallel Ray task fan-out (python client)
+ℹ  Running: CoreDNS replicas (informational)
+CoreDNS ready replicas: 1 (minikube default=1; production=4)
+✅ PASS — CoreDNS replicas (informational)
+ℹ  Running: Velero namespace or note (simulation)
+velero namespace not present (expected in local env)
+✅ PASS — Velero namespace or note (simulation)
+ℹ  Running: Parallel Ray task fan-out (10 tasks)
+Defaulted container "ray-head" out of: ray-head, autoscaler
+I0314 13:29:21.315348   36817 log.go:244] (0x1400011e000) (0x140006900a0) Create stream
+I0314 13:29:21.315458   36817 log.go:244] (0x1400011e000) (0x140006900a0) Stream added, broadcasting: 1
+I0314 13:29:21.317081   36817 log.go:244] (0x1400011e000) Reply frame received for 1
+I0314 13:29:21.317092   36817 log.go:244] (0x1400011e000) (0x1400054c000) Create stream
+I0314 13:29:21.317097   36817 log.go:244] (0x1400011e000) (0x1400054c000) Stream added, broadcasting: 3
+I0314 13:29:21.318287   36817 log.go:244] (0x1400011e000) Reply frame received for 3
+I0314 13:29:21.318298   36817 log.go:244] (0x1400011e000) (0x140001e46e0) Create stream
+I0314 13:29:21.318301   36817 log.go:244] (0x1400011e000) (0x140001e46e0) Stream added, broadcasting: 5
+I0314 13:29:21.319410   36817 log.go:244] (0x1400011e000) Reply frame received for 5
+I0314 13:29:21.518410   36817 log.go:244] (0x1400011e000) Data frame received for 5
+I0314 13:29:21.518479   36817 log.go:244] (0x140001e46e0) (5) Data frame handling
+I0314 13:29:21.518514   36817 log.go:244] (0x140001e46e0) (5) Data frame sent
+I0314 13:29:21.518552   36817 log.go:244] (0x1400011e000) Data frame received for 5
+I0314 13:29:21.518580   36817 log.go:244] (0x140001e46e0) (5) Data frame handling
+2026-03-14 11:29:21,583	INFO worker.py:1405 -- Using address 127.0.0.1:6379 set in the environment variable RAY_ADDRESS
+2026-03-14 11:29:21,584	INFO worker.py:1540 -- Connecting to existing Ray cluster at address: 10.244.0.17:6379...
+I0314 13:29:21.518599   36817 log.go:244] (0x140001e46e0) (5) Data frame sent
+I0314 13:29:21.522879   36817 log.go:244] (0x1400011e000) Data frame received for 5
+I0314 13:29:21.522885   36817 log.go:244] (0x140001e46e0) (5) Data frame handling
+I0314 13:29:21.522889   36817 log.go:244] (0x140001e46e0) (5) Data frame sent
+[2026-03-14 11:29:21,588 I 512 512] global_state_accessor.cc:432: This node has an IP address of 127.0.0.1, but we cannot find a local Raylet with the same address. This can happen when you connect to the Ray cluster with a different IP address or when connecting to a container.
+I0314 13:29:21.523981   36817 log.go:244] (0x1400011e000) Data frame received for 5
+I0314 13:29:21.523986   36817 log.go:244] (0x140001e46e0) (5) Data frame handling
+I0314 13:29:21.523988   36817 log.go:244] (0x140001e46e0) (5) Data frame sent
+2026-03-14 11:29:21,590	INFO worker.py:1715 -- Connected to Ray cluster. View the dashboard at 10.244.0.17:8265 
+I0314 13:29:22.936258   36817 log.go:244] (0x1400011e000) Data frame received for 3
+I0314 13:29:22.936270   36817 log.go:244] (0x1400054c000) (3) Data frame handling
+I0314 13:29:22.936281   36817 log.go:244] (0x1400054c000) (3) Data frame sent
+Results: [0, 499500, 1999000, 4498500, 7998000, 12497500, 17997000, 24496500, 31996000, 40495500]
+I0314 13:29:23.010739   36817 log.go:244] (0x1400011e000) (0x1400054c000) Stream removed, broadcasting: 3
+I0314 13:29:23.010769   36817 log.go:244] (0x1400011e000) Data frame received for 1
+I0314 13:29:23.010773   36817 log.go:244] (0x140006900a0) (1) Data frame handling
+I0314 13:29:23.010776   36817 log.go:244] (0x140006900a0) (1) Data frame sent
+I0314 13:29:23.010777   36817 log.go:244] (0x1400011e000) (0x140006900a0) Stream removed, broadcasting: 1
+I0314 13:29:23.010796   36817 log.go:244] (0x1400011e000) (0x140001e46e0) Stream removed, broadcasting: 5
+I0314 13:29:23.010851   36817 log.go:244] (0x1400011e000) Go away received
+I0314 13:29:23.010876   36817 log.go:244] (0x1400011e000) (0x140001e46e0) Stream removed, broadcasting: 5
+I0314 13:29:23.010880   36817 log.go:244] (0x1400011e000) (0x140006900a0) Stream removed, broadcasting: 1
+I0314 13:29:23.010882   36817 log.go:244] (0x1400011e000) (0x1400054c000) Stream removed, broadcasting: 3
+✅ PASS — Parallel Ray task fan-out (10 tasks)
+ℹ  Running: OPA policy files are present
+✅ PASS — OPA policy files are present
+
+══════════════════════════════════════
+  Validation Report
+══════════════════════════════════════
+
+  Tests run   : 13
+  Passed      : 13
+  Failed      : 0
+
+✅ All 13 validations passed. Local Ray cluster is healthy.
+
+ℹ  Ray Dashboard: run the following to open it in your browser:
+
+  kubectl port-forward -n ray-system pod/ray-cluster-head-tx67g 8265:8265 &
+  open http://localhost:8265
+
+ℹ  To tear down: ./local_test.sh --teardown
+
+
+# Exit code: 0

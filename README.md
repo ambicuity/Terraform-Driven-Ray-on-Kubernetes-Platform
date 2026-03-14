@@ -10,6 +10,7 @@ This repository provides a production-oriented AWS EKS platform for running Ray 
 - `helm/ray/` renders a deployable `RayCluster` chart for KubeRay.
 - `terraform/examples/complete/` shows the addon and workload layer: Cluster Autoscaler, KubeRay, the Ray chart, and optional Velero.
 - `policies/` keeps a small Terraform-focused OPA ruleset.
+- `tests/evidence/` is the committed local evidence hub for supported claims and saved terminal output.
 - `validation/` and `local_test.sh` exercise the real chart-backed local path.
 
 ## What Changed
@@ -18,6 +19,7 @@ This repository provides a production-oriented AWS EKS platform for running Ray 
 - GPU workloads are safe-by-default for Spot-heavy clusters: when the primary GPU pool uses `SPOT`, the module also creates a small On-Demand fallback pool unless you explicitly disable it.
 - The launch templates described in the docs are now actually attached to the node groups.
 - The Helm chart is a real chart with renderable templates, not just a values file.
+- The repository now keeps a committed local evidence bundle under `tests/evidence/`.
 - The repo keeps only lightweight advisory AI surfaces. Merge gates remain deterministic.
 
 ## Quick Start
@@ -55,12 +57,17 @@ Terraform `>= 1.6.0` is required for the module test suite. The repository also 
 Recommended checks:
 
 ```bash
-make lint
-make test
-./local_test.sh
+make evidence
 ```
 
-`local_test.sh` installs the real `helm/ray` chart on top of KubeRay in minikube instead of validating an inline throwaway manifest.
+`make evidence` runs the deterministic checks, audits the supported claims, runs the chart-backed `./local_test.sh` harness, and saves the terminal output in `tests/evidence/`.
+
+If you only want the faster deterministic subset first:
+
+```bash
+make lint
+make test
+```
 
 Optional review surfaces are CodeRabbit and Gemini Code Assist on GitHub. They are advisory only. Merge gates remain deterministic through `CI`, `CodeQL`, and `Gitleaks`.
 
@@ -81,3 +88,5 @@ Optional review surfaces are CodeRabbit and Gemini Code Assist on GitHub. They a
 - [Contributing](docs/contributing.md)
 - [Terraform Module README](terraform/README.md)
 - [Validation Runbook](validation/README.md)
+- [Claim Matrix](tests/evidence/claim-matrix.md)
+- [Latest Local Evidence Summary](tests/evidence/SUMMARY.md)

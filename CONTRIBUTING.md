@@ -11,11 +11,12 @@ Thanks for contributing to **Terraform-Driven Ray on Kubernetes Platform**.
 
 ## Local checks
 
-- Preferred: `make lint` and `make test`
+- Preferred: `make evidence`
+- Faster deterministic subset: `make lint` and `make test`
 - Infrastructure changes: `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform init -backend=false`, `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform validate`, `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform test`, `./.tmp-tools/bin/opa-0.63.0 test policies -v`
 - Workload changes: `python3 -m compileall workloads validation`, `helm lint helm/ray`, `helm template ray-ci helm/ray >/tmp/ray-rendered.yaml`
 - Automation changes: `python3 -m compileall scripts tests`, `pytest tests -q`
-- Workflow and shell changes: `actionlint`, `shellcheck local_test.sh validation/*.sh`
+- Workflow and shell changes: `actionlint`, `shellcheck local_test.sh validation/*.sh tests/evidence/*.sh`
 
 The repository `CI` workflow mirrors this split and only runs the relevant jobs for the changed paths.
 
