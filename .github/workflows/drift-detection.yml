@@ -2,8 +2,11 @@ name: Infrastructure Drift Detection
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight UTC
-  workflow_dispatch:      # Allow manual trigger
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+env:
+  TERRAFORM_VERSION: "1.9.8"
 
 jobs:
   drift-check:
@@ -15,32 +18,58 @@ jobs:
       id-token: write     # Required for OIDC
 
     steps:
+      - name: Check AWS OIDC configuration
+        id: preflight
+        shell: bash
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          [[ -n "$AWS_ROLE_ARN" ]] || missing+=("AWS_ROLE_ARN")
+          [[ -n "$AWS_REGION" ]] || missing+=("AWS_REGION")
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping drift detection because these repository secrets are not configured: ${missing[*]}"
+            exit 0
+          fi
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Report skipped configuration
+        if: steps.preflight.outputs.configured == 'false'
+        run: echo "Drift detection skipped because AWS OIDC configuration is not available for this repository."
+
       - name: Checkout Code
+        if: steps.preflight.outputs.configured == 'true'
         uses: actions/checkout@v6
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        if: steps.preflight.outputs.configured == 'true'
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.7.0"
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        if: steps.preflight.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
-          # Assumes OIDC is configured as per Phase 1 docs
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Terraform Init
+        if: steps.preflight.outputs.configured == 'true'
         working-directory: terraform
         run: terraform init
 
       - name: Terraform Plan (Detailed Exit Code)
         id: plan
+        if: steps.preflight.outputs.configured == 'true'
         working-directory: terraform
         run: |
-          # 0 = success, no drift
-          # 1 = error
-          # 2 = success, drift detected
           set +e
           terraform plan -detailed-exitcode -out=drift.binary
           exit_code=$?
@@ -51,7 +80,6 @@ jobs:
           elif [ "$exit_code" -eq 1 ]; then
             exit "$exit_code"
           fi
-        continue-on-error: true
 
       - name: Run Drift Detector Script
         if: steps.plan.outputs.exit_code == '2'

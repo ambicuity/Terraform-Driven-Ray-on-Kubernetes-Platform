@@ -20,6 +20,7 @@ env:
   TERRAFORM_VERSION: "1.9.8"
   HELM_VERSION: "3.16.4"
   OPA_VERSION: "0.63.0"
+  ACTIONLINT_VERSION: "1.7.11"
 
 jobs:
   detect-changes:
@@ -73,8 +74,8 @@ jobs:
 
             infra="$(matches '^(terraform/|policies/|\\.tflint\\.hcl$)')"
             app="$(matches '^(helm/|workloads/|validation/)')"
-            automation="$(matches '^(scripts/|tests/|\\.agents/|\\.gemini/|\\.coderabbit\\.yaml$|\\.github/workflows/|\\.github/instructions/|\\.github/copilot-instructions\\.md$|\\.gitattributes$)')"
-            docs="$(matches '^(README\\.md$|CONTRIBUTING\\.md$|SECURITY\\.md$|ROADMAP\\.md$|CHANGELOG\\.md$|docs/|\\.github/pull_request_template\\.md$|\\.github/ISSUE_TEMPLATE/|\\.github/DISCUSSION_TEMPLATE/)')"
+            automation="$(matches '^(scripts/|tests/|\\.coderabbit\\.yaml$|\\.github/workflows/|\\.gitattributes$)')"
+            docs="$(matches '^(README\\.md$|CONTRIBUTING\\.md$|SECURITY\\.md$|ROADMAP\\.md$|CHANGELOG\\.md$|DEPLOYMENT\\.md$|IMPLEMENTATION_SUMMARY\\.md$|docs/|\\.github/copilot-instructions\\.md$|\\.github/pull_request_template\\.md$|\\.github/ISSUE_TEMPLATE/|\\.github/DISCUSSION_TEMPLATE/)')"
           fi
 
           {
@@ -109,15 +110,15 @@ jobs:
           cache: pip
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Set up TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v6.2.2
 
       - name: Set up OPA
-        uses: open-policy-agent/setup-opa@v2
+        uses: open-policy-agent/setup-opa@v2.3.0
         with:
           version: ${{ env.OPA_VERSION }}
 
@@ -223,8 +224,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest==8.3.4
 
+      - name: Install actionlint
+        run: |
+          curl -sSL \
+            "https://github.com/rhysd/actionlint/releases/download/v${{ env.ACTIONLINT_VERSION }}/actionlint_${{ env.ACTIONLINT_VERSION }}_linux_amd64.tar.gz" \
+            | tar -xz actionlint
+          sudo mv actionlint /usr/local/bin/actionlint
+          actionlint -version
+
       - name: Compile automation Python
         run: python -m compileall scripts tests
+
+      - name: Validate GitHub Actions workflows
+        run: actionlint -color
 
       - name: Pytest
         run: pytest tests -q
@@ -253,10 +265,14 @@ jobs:
               "CONTRIBUTING.md",
               "SECURITY.md",
               "ROADMAP.md",
+              "DEPLOYMENT.md",
+              "IMPLEMENTATION_SUMMARY.md",
               "docs/ci-cd-pipelines.md",
               "docs/contributing.md",
+              "docs/ai-automation.md",
               "docs/security.md",
               "docs/terraform-module.md",
+              ".github/copilot-instructions.md",
               ".github/pull_request_template.md",
           ]
           for name in explicit:
@@ -272,6 +288,10 @@ jobs:
               "/ai-review": "deprecated slash commands must not be documented",
               "/ai-tests": "deprecated slash commands must not be documented",
               "/replan": "deprecated slash commands must not be documented",
+              "/plan": "removed planning workflow must not be documented",
+              "COPILOT_GITHUB_TOKEN": "removed workflow secret must not be documented",
+              "gh-aw": "removed repo-owned AI workflow layer must not be documented",
+              "GitHub Agentic Workflows": "removed repo-owned AI workflow layer must not be documented",
               "ai-doc-sync.yml": "removed workflow references must be removed",
               "ai-issue-solver.yml": "removed workflow references must be removed",
               "ai-test-engineer.yml": "removed workflow references must be removed",
@@ -281,6 +301,17 @@ jobs:
               "alpha-governor.yml": "removed workflow references must be removed",
               "memory.yml": "removed workflow references must be removed",
               "memory-incremental.yml": "removed workflow references must be removed",
+              "assignment-followup.yml": "removed workflow references must be removed",
+              "bot-commands.yml": "removed workflow references must be removed",
+              "ci-doctor": "removed workflow references must be removed",
+              "issue-triage": "removed workflow references must be removed",
+              "repository-quality-improver": "removed workflow references must be removed",
+              "contribution-guidelines-checker": "removed workflow references must be removed",
+              "daily-repo-status": "removed workflow references must be removed",
+              "Copilot coding agent": "disabled GitHub-side agent workflow must not be documented",
+              "Copilot code review": "disabled GitHub-side agent workflow must not be documented",
+              "OpenAI Codex": "disabled GitHub-side agent workflow must not be documented",
+              "Claude": "disabled GitHub-side agent workflow must not be documented",
               "terraform-ci.yml": "removed workflow references must be removed",
               "tfsec.yml": "removed workflow references must be removed",
               "tflint.yml": "removed workflow references must be removed",

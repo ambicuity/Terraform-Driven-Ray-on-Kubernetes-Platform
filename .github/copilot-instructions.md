@@ -64,7 +64,7 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
 - **Commits**: Follow Conventional Commits (`feat:`, `fix:`, `docs:`, `ci:`, etc.).
 - **PR Titles**: Must start with a capital letter after the prefix (e.g., `feat: Add GPU support`).
 - **Documentation**: Sync all infrastructure changes with the corresponding file in `docs/` and the root `README.md`.
-- **AI Surfaces**: The supported GitHub assistants are CodeRabbit, Gemini Code Assist on GitHub, and official GitHub Agentic Workflows. Do not reintroduce custom Gemini CLI subagents, queue files, or hidden memory stores.
+- **AI Surfaces**: Treat CodeRabbit and Gemini Code Assist on GitHub as optional review aids only. Do not assume repository-hosted agents, slash-command workflows, custom Gemini CLI subagents, queue files, or hidden memory stores exist.
 
 ---
 
@@ -75,6 +75,6 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
     - `helm/`: Helm charts, notably `helm/ray/` for the Ray cluster configuration.
     - `policies/`: OPA policies for governance guardrails.
     - `scripts/`: Small deterministic operational scripts that support validation and reporting workflows.
-    - `.github/workflows/`: Deterministic GitHub Actions plus official GitHub Agentic Workflows sources (`*.md`) and compiled lock files (`*.lock.yml`).
+    - `.github/workflows/`: The maintained workflow set for CI, security checks, release drafting, contributor greeting, stale management, and drift detection.
     - `.gemini/`: Repository-level Gemini Code Assist configuration (`config.yaml`, `styleguide.md`).
     - `.coderabbit.yaml`: Repository-level CodeRabbit review instructions.

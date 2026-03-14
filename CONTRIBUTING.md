@@ -11,22 +11,15 @@ Thanks for contributing to **Terraform-Driven Ray on Kubernetes Platform**.
 
 ## Local checks
 
-- Infrastructure changes: `terraform validate`, `terraform test`, `opa test`
-- Workload changes: `helm lint`, `helm template`, `kube-score`, Python compile for `workloads/` and `validation/`
-- Automation changes: `pytest tests -q`
+- Infrastructure changes: `terraform -chdir=terraform init -backend=false`, `terraform -chdir=terraform validate`, `terraform -chdir=terraform test`, `opa test policies -v`
+- Workload changes: `python -m compileall workloads validation`, `helm lint helm/ray`, `helm template ray-ci helm/ray >/tmp/ray-rendered.yaml`, `kube-score score /tmp/ray-rendered.yaml --ignore-test container-security-context-privileged --output-format ci`
+- Automation changes: `python -m compileall scripts tests`, `pytest tests -q`
+- Workflow changes: `actionlint`
 
 The repository `CI` workflow mirrors this split and only runs the relevant jobs for the changed paths.
 
-## AI-assisted review
+## Optional review tools
 
-The supported AI surfaces are:
-
-- `/gemini review`
-- `/gemini summary`
-- `@coderabbitai review`
-- `@coderabbitai plan`
-- `/plan` for linked task breakdowns on issues and discussions
-
-The repository no longer uses custom Gemini CLI subagents or repo-hosted autonomous PR bots.
+CodeRabbit and Gemini Code Assist on GitHub are available if you want advisory feedback, but they are optional and not part of the merge gate.
 
 For the longer contributor guide, see [`docs/contributing.md`](docs/contributing.md).

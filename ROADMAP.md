@@ -19,20 +19,20 @@
 | Feature | Status |
 |---|---|
 | Path-scoped required CI router | Done |
-| Official GitHub Agentic Workflows (`gh-aw`) | Done |
+| Low-noise deterministic workflow set | Done |
 | CodeRabbit integration | Done |
 | Gemini Code Assist on GitHub integration | Done |
-| Slash-command workflow for assignment and status management | Done |
-| Assignment follow-up with linked-PR detection | Done |
+| Ruleset-managed required checks | Done |
+| Workflow linting in CI | Done |
 | Terraform source pinning to `v1.0.0` in docs | Done |
-| Removal of custom Gemini CLI agent runtime | Done |
+| Removal of repo-owned AI workflow layer | Done |
 
 ## Milestone 3 — Production Readiness Follow-Through
 
 | Feature | Status |
 |---|---|
-| Further separation of infra and workload delivery concerns | Planned |
-| Branch protection and required-check cleanup | Planned |
+| Further separation of infra and workload delivery concerns | In Progress |
+| Branch protection and required-check cleanup | Done |
 | Release automation aligned to pinned tags | Planned |
 | Additional workload validation depth | Planned |
 

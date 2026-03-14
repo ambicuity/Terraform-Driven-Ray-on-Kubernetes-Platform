@@ -24,18 +24,17 @@ jobs:
             Thanks for opening your first issue.
 
             A maintainer will review this shortly. In the meantime:
-            - Review the [README](https://github.com/${{ github.repository }}#readme) for setup guidance
-            - Use `/plan` on the issue if you want the official planning workflow to break the work into tasks
-            - Add reproduction steps and environment details if more context is available
+            - Review the [README](https://github.com/${{ github.repository }}#readme) for project context
+            - Review the [contributor guide](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md) for local validation steps
+            - Add reproduction steps, environment details, and expected versus actual behavior if more context is available
           pr_message: |
             Welcome to **Terraform-Driven Ray on Kubernetes**.
 
             Thanks for your first pull request.
 
             A few repo-specific checks to keep in mind:
-            - `CI` is path-scoped, so only the relevant infra, app, automation, or docs jobs should run
-            - `/gemini review` and `/gemini summary` are available for Gemini Code Assist
-            - `@coderabbitai review` and `@coderabbitai plan` are available for CodeRabbit
+            - Review [CONTRIBUTING.md](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md) and run the scoped checks that match your changes
+            - Workflow changes should pass `actionlint`, automation changes should pass `pytest tests -q`, and docs changes should avoid stale workflow references
             - Please keep the PR title in [Conventional Commits](https://www.conventionalcommits.org/) format
 
             A maintainer will review this soon.

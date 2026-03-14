@@ -12,14 +12,11 @@
 #
 # Environment:
 #   Copy .env.example to .env.local and fill in your secrets.
-#   Required for integration-style tests that hit real APIs:
-#     GEMINI_API_KEY=...
-#     GITHUB_TOKEN=...
-#     GITHUB_REPOSITORY=owner/repo
+#   No repository secrets are required for the default local test runs.
 #
-# Note: The Python scripts never make real API calls during unit tests —
-# all I/O is mocked. The .env.local file is only needed if you add
-# integration tests that call the live Gemini or GitHub APIs.
+# Note: The Python scripts never make real API calls during unit tests.
+# The .env.local file is only needed if you add your own integration tests
+# that call live external services.
 # ---------------------------------------------------------------------------
 
 services:

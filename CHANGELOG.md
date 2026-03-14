@@ -12,9 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Changed
 
-- replaced the custom Gemini CLI agent stack with CodeRabbit, Gemini Code Assist on GitHub, and official GitHub Agentic Workflows
+- replaced the custom Gemini CLI agent stack with a smaller automation model centered on deterministic CI plus optional CodeRabbit and Gemini review tools
 - collapsed fragmented CI checks into one path-scoped required `CI` workflow
-- updated assignment follow-up logic to suppress nudges when an assigned issue already has a linked open PR
 - pinned public Terraform module examples to `v1.0.0`
 
 ### Removed
@@ -22,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - legacy Gemini CLI subagents, setup action, queue files, and memory artifacts
 - custom AI workflows (`gamma-triage`, `delta-executor`, `beta-reviewer`, `alpha-governor`, and related helpers)
 - redundant standalone CI workflows that duplicated the required router
+- assignment follow-up and slash-command automation in favor of a lower-noise maintainer workflow set
 
 ### Documentation
 

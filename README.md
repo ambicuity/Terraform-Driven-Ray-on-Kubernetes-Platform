@@ -87,11 +87,12 @@ This repository keeps infrastructure, workloads, policies, automation, and docs 
 - `scripts/**`, `tests/**`, and workflow/config changes run automation checks only
 - docs-only changes run docs metadata checks only
 
-Supported AI surfaces are:
+Optional review surfaces are:
 
 - CodeRabbit
 - Gemini Code Assist on GitHub
-- official GitHub Agentic Workflows (`gh-aw`)
+
+Repo-owned AI workflows are intentionally disabled. Merge gates stay deterministic through `CI`, `CodeQL`, and `Gitleaks`.
 
 ## Operational Excellence
 
