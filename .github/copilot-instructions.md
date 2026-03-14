@@ -15,10 +15,11 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
 
 ### 1. Terraform / HCL
 
-- **Provider Versions**: Use `hashicorp/aws` v5.0+ and `hashicorp/kubernetes` v2.20+.
+- **Version Floor**: Target Terraform `>= 1.6.0`.
+- **Provider Versions**: Use `hashicorp/aws` v5.0+, `hashicorp/tls` v4.0+, and add Helm only in addon/example stacks.
 - **Variables**: Always include `type`, `description`, and `validation` blocks for all input variables.
 - **Outputs**: Document all outputs with meaningful descriptions.
-- **Resources**: 
+- **Resources**:
     - Enforce IMDSv2 (`http_tokens = required`).
     - Enable EBS encryption by default.
     - Use GP3 volumes with explicit IOPS/throughput.
@@ -38,11 +39,9 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
 ### 3. OPA / Rego (Policy-as-Code)
 
 - **Syntax**: Use OPA 1.0 syntax (`import rego.v1`).
-- **Structure**: Separate `deny` (blocking) rules from `warn` (advisory) rules.
-- **Optimization**: Use the `contains` keyword for set-based rules.
-- **Existing Guardrails**: Refer to existing policies when modifying infrastructure:
+- **Scope**: Keep policies tightly aligned to the actual Terraform platform design; avoid speculative workload policies.
+- **Existing Guardrails**: Refer to the maintained policies when modifying infrastructure:
     - `policies/cost_governance.rego`
-    - `policies/ray.rego`
     - `policies/terraform.rego`
 
 ---
@@ -50,12 +49,12 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
 ## Architecture & Security Patterns
 
 - **Authentication**: Use short-lived GitHub workflow tokens and AWS OIDC federation for repo automation. Never suggest static AWS access keys in workflows.
-- **Networking**: Enforce private subnets and RFC 1918 egress restrictions.
+- **Networking**: Assume private subnets for worker nodes, but do not force impossible RFC 1918-only egress in a NAT-backed EKS design.
 - **KMS**: All sensitive data (EKS secrets, CloudWatch logs) must be encrypted via KMS envelope encryption.
-- **Autoscaling**: Coordinate four layers: Ray Autoscaler -> HPA -> Cluster Autoscaler -> AWS ASG. 
-- **Disaster Recovery**: Utilize `velero.tf` for cluster state backups and rapid disaster recovery.
-- **GPU Management**: Use `SPOT` capacity with `nvidia.com/gpu=true:NoSchedule` taints and automated interruption handling.
-- **Separation of Concerns**: The repository deliberately co-locates Terraform, Helm, OPA, Python automation, and docs. Any workflow or code change must preserve path-scoped CI so an app-only change does not fan out into infra validation beyond what is necessary.
+- **Autoscaling**: Keep the root module focused on platform capacity envelopes; install Cluster Autoscaler and Ray via the example/addon layer.
+- **Disaster Recovery**: Velero belongs in the example/addon layer, not the reusable root module.
+- **GPU Management**: Treat Spot GPU nodes as cost-optimized but not inherently reliable; preserve the On-Demand fallback posture unless there is an explicit reason not to.
+- **Separation of Concerns**: The repository deliberately co-locates Terraform, Helm, OPA, Python automation, and docs, but the root Terraform module must stay infra-only.
 
 ---
 
@@ -71,9 +70,10 @@ You are a **Senior Principal Engineer** with 20+ years of experience in distribu
 ## Helpful Context (Repository Architecture)
 
 - **Major Components**:
-    - `terraform/`: Contains all IaC modules (`main.tf` for Core EKS/IAM, `node_pools.tf` for Autoscaling node groups, `velero.tf` for backups).
-    - `helm/`: Helm charts, notably `helm/ray/` for the Ray cluster configuration.
-    - `policies/`: OPA policies for governance guardrails.
+    - `terraform/`: Core infra-only EKS module (`main.tf`, `node_pools.tf`, `outputs.tf`, `variables.tf`).
+    - `terraform/examples/complete/`: Addon/workload composition layer, including KubeRay, Cluster Autoscaler, the local Ray chart, and optional Velero.
+    - `helm/`: Helm charts, notably `helm/ray/` for the deployable RayCluster.
+    - `policies/`: Small Terraform-focused OPA guardrails.
     - `scripts/`: Small deterministic operational scripts that support validation and reporting workflows.
     - `.github/workflows/`: The maintained workflow set for CI, security checks, release drafting, contributor greeting, stale management, and drift detection.
     - `.gemini/`: Repository-level Gemini Code Assist configuration (`config.yaml`, `styleguide.md`).

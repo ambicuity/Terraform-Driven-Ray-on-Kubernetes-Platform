@@ -1,73 +1,39 @@
-# Security Architecture
+# Security
 
-This document describes the current security model for infrastructure, workloads, and GitHub automation.
+## Identity and Access
 
-## Identity and access
+- GitHub workflows use the short-lived `GITHUB_TOKEN`
+- AWS access for automation is expected to use GitHub OIDC federation
+- The root Terraform module configures EKS OIDC so downstream addons can use IRSA
 
-### GitHub automation
+## Platform Controls
 
-- Repository workflows use the short-lived `GITHUB_TOKEN` with least-privilege permissions.
-- CodeRabbit and Gemini Code Assist are installed GitHub apps. They are advisory review surfaces, not merge gates.
+- Kubernetes secrets are encrypted with KMS
+- Launch templates require IMDSv2
+- Root volumes are encrypted gp3
+- Worker node groups are private-subnet oriented and rely on upstream NAT and egress controls
+- OPA policies enforce a small set of Terraform-aligned guardrails
 
-The repository does not rely on repo-owned AI workflows, custom Gemini CLI credentials, or long-lived GitHub application keys for normal workflow execution.
+## Spot GPU Policy
 
-### AWS access
+This repo no longer treats Spot-only GPU capacity as a security or reliability control by itself.
 
-- AWS access in automation should use GitHub OIDC federation.
-- [`drift-detection.yml`](../.github/workflows/drift-detection.yml) is the only remaining workflow that touches AWS directly.
-- Static AWS access keys should not be used in repository workflows.
+The current default is:
 
-Example trust-policy scoping:
+- primary GPU pool may use `SPOT`
+- an On-Demand fallback GPU pool is created automatically unless explicitly disabled
 
-```json
-{
-  "Condition": {
-    "StringEquals": {
-      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-    },
-    "StringLike": {
-      "token.actions.githubusercontent.com:sub": "repo:ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform:*"
-    }
-  }
-}
-```
+That is a reliability posture, but it also reduces operational pressure to make unsafe emergency changes after Spot exhaustion.
 
-## Infrastructure controls
+## Repo Automation
 
-- EKS secrets use KMS envelope encryption.
-- Launch templates enforce IMDSv2.
-- GPU nodes use taints and Spot interruption handling.
-- IRSA is preferred for cluster-level AWS access.
-- OPA policies enforce guardrails before deployment.
+The repo keeps only advisory AI review surfaces:
 
-## CI and policy controls
+- CodeRabbit
+- Gemini Code Assist on GitHub
+- official GitHub Agentic Workflows
+- repository-level Copilot instructions
 
-| Control | Where it runs |
-|---|---|
-| Terraform formatting, validation, tests | `CI / infra-ci` |
-| OPA policy tests | `CI / infra-ci` |
-| Helm lint and render checks | `CI / app-ci` |
-| `kube-score` | `CI / app-ci` |
-| Python compile and tests | `CI / automation-ci` |
-| Docs consistency checks | `CI / docs-meta` |
-| CodeQL | `codeql.yml` |
-| Gitleaks | `gitleaks.yml` |
+Repository workflows use the short-lived `GITHUB_TOKEN` with least-privilege permissions and do not rely on repo-owned AI workflows, custom Gemini CLI credentials, or long-lived GitHub application keys for normal execution.
 
-## Separation of concerns
-
-This repository intentionally keeps infrastructure and workloads in one repository. That is workable only if workflow scoping is strict. The security posture therefore depends on:
-
-1. path-scoped CI to reduce unnecessary blast radius
-2. pinned Terraform Git sources for downstream module consumers
-3. least-privilege workflow permissions
-4. keeping AI assistants advisory instead of merge-blocking
-
-## Review checklist
-
-When reviewing security-sensitive changes, prioritize these questions:
-
-- Does this introduce or reintroduce static cloud credentials?
-- Does this widen a workflow trigger or permission scope unnecessarily?
-- Does this point Terraform at a moving GitHub branch instead of a pinned ref?
-- Does this couple workload-only changes to infrastructure validation or deployment?
-- Do the OPA policies still match the actual Terraform and Helm layout?
+These are not merge gates. Required merge gates are deterministic CI, CodeQL, and Gitleaks.

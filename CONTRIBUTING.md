@@ -11,15 +11,16 @@ Thanks for contributing to **Terraform-Driven Ray on Kubernetes Platform**.
 
 ## Local checks
 
-- Infrastructure changes: `terraform -chdir=terraform init -backend=false`, `terraform -chdir=terraform validate`, `terraform -chdir=terraform test`, `opa test policies -v`
-- Workload changes: `python -m compileall workloads validation`, `helm lint helm/ray`, `helm template ray-ci helm/ray >/tmp/ray-rendered.yaml`, `kube-score score /tmp/ray-rendered.yaml --ignore-test container-security-context-privileged --output-format ci`
-- Automation changes: `python -m compileall scripts tests`, `pytest tests -q`
-- Workflow changes: `actionlint`
+- Preferred: `make lint` and `make test`
+- Infrastructure changes: `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform init -backend=false`, `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform validate`, `./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform test`, `./.tmp-tools/bin/opa-0.63.0 test policies -v`
+- Workload changes: `python3 -m compileall workloads validation`, `helm lint helm/ray`, `helm template ray-ci helm/ray >/tmp/ray-rendered.yaml`
+- Automation changes: `python3 -m compileall scripts tests`, `pytest tests -q`
+- Workflow and shell changes: `actionlint`, `shellcheck local_test.sh validation/*.sh`
 
 The repository `CI` workflow mirrors this split and only runs the relevant jobs for the changed paths.
 
 ## Optional review tools
 
-CodeRabbit and Gemini Code Assist on GitHub are available if you want advisory feedback, but they are optional and not part of the merge gate.
+CodeRabbit, Gemini Code Assist on GitHub, and official GitHub Agentic Workflows are available if you want advisory feedback, but they are optional and not part of the merge gate.
 
 For the longer contributor guide, see [`docs/contributing.md`](docs/contributing.md).

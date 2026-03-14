@@ -1,74 +1,63 @@
 # CI/CD Pipelines
 
-This repository keeps one path-scoped CI workflow and a small set of focused security and maintenance workflows.
+The repository uses one path-scoped CI workflow plus focused security and maintenance workflows.
 
-## Required checks on `main`
+## Required Checks
 
-The ruleset in the repo root requires these checks:
+Branch protection requires:
 
 - `CI Summary`
 - `Secret Detection`
 - `CodeQL Analyze (python)`
 
-`CI Summary` is the single required CI gate from [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+`CI Summary` is the single required gate from [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
-## Why the repo uses a router
+## Scoped CI Jobs
 
-The repository contains Terraform, Helm workloads, Python automation, OPA policies, and docs in one place. The router keeps docs-only and automation-only changes from paying the full infrastructure validation cost.
-
-## Path map
+`ci.yml` routes work by path so infra and workload changes do not force unrelated validation:
 
 | Changed paths | Job |
 |---|---|
 | `terraform/**`, `policies/**` | `infra-ci` |
 | `helm/**`, `workloads/**`, `validation/**` | `app-ci` |
 | `scripts/**`, `tests/**`, `.github/workflows/**` | `automation-ci` |
-| `README.md`, `docs/**`, `DEPLOYMENT.md`, templates, and repo docs | `docs-meta` |
+| `README.md`, `docs/**`, repo guidance | `docs-meta` |
 
-`CI Summary` always runs, even when scoped jobs are skipped.
+`CI Summary` always runs, even if scoped jobs are skipped.
 
-## What each CI job does
+## What CI Validates
 
-### `infra-ci`
+Infra:
 
-- `terraform fmt -check -recursive terraform/`
-- `terraform init` and `terraform validate` for the root module
-- `terraform init` and `terraform validate` for `terraform/examples/complete`
-- `terraform test`
-- `tflint`
-- `checkov`
-- `opa test`
+- Terraform fmt, init, validate, and test
+- example stack validate
+- TFLint
+- Checkov
+- OPA policy tests
 
-### `app-ci`
+Workloads:
 
-- `python -m compileall workloads validation`
-- `helm lint helm/ray`
-- `helm template helm/ray`
-- `kube-score`
+- Python `compileall`
+- `helm lint`
+- `helm template`
 
-### `automation-ci`
+Automation:
 
-- `python -m compileall scripts tests`
 - `actionlint`
 - `pytest tests -q`
+- Python `compileall` for `scripts/` and `tests/`
+- docs metadata checks that reject stale workflow and legacy AI-runtime references
 
-### `docs-meta`
-
-- rejects references to removed AI workflow files and disabled GitHub-side agent workflows
-- rejects stale instructions for removed commands and secrets
-- rejects unpinned GitHub Terraform module source strings in docs
-
-## Additional workflows
+## Additional Workflows
 
 | Workflow | Trigger | Notes |
 |---|---|---|
-| `codeql.yml` | PR, push, schedule | semantic code analysis |
+| `codeql.yml` | PR, push, schedule | semantic analysis |
 | `gitleaks.yml` | PR, push | secret scanning |
-| `drift-detection.yml` | weekly, manual | skips cleanly unless AWS OIDC secrets are configured |
-| `release-drafter.yml` | push to `main`, manual | draft release notes |
-| `stale.yml` | weekly, manual | low-noise stale issue and PR handling |
-| `contributor-greeting.yml` | first issue or PR | points contributors to local checks and docs |
+| `drift-detection.yml` | schedule, manual | Terraform drift detection via AWS OIDC |
+| `stale.yml` | schedule, manual | stale issue and PR management |
+| `assignment-followup.yml` | schedule, manual | nudges assigned issues without linked open PRs |
 
-## Advisory review tools
+## Advisory AI Surfaces
 
-CodeRabbit and Gemini Code Assist on GitHub are optional review tools. They are not required for contributors and they are not part of branch protection.
+The repo keeps only advisory AI metadata and GitHub app integrations. CodeRabbit, Gemini Code Assist on GitHub, and official GitHub Agentic Workflows are optional helpers, not merge gates, and there are no repo-owned autonomous issue or PR bots in the maintained workflow set.

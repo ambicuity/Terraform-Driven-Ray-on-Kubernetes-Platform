@@ -174,12 +174,62 @@ variable "cpu_capacity_type" {
   description = "Capacity type for CPU worker nodes (ON_DEMAND or SPOT)"
   type        = string
   default     = "ON_DEMAND"
+
+  validation {
+    condition     = contains(["ON_DEMAND", "SPOT"], var.cpu_capacity_type)
+    error_message = "CPU capacity type must be ON_DEMAND or SPOT."
+  }
 }
 
 variable "gpu_capacity_type" {
   description = "Capacity type for GPU worker nodes (ON_DEMAND or SPOT). Default is SPOT for cost optimization."
   type        = string
   default     = "SPOT"
+
+  validation {
+    condition     = contains(["ON_DEMAND", "SPOT"], var.gpu_capacity_type)
+    error_message = "GPU capacity type must be ON_DEMAND or SPOT."
+  }
+}
+
+variable "enable_gpu_ondemand_fallback" {
+  description = "Create a small On-Demand fallback GPU node group when the primary GPU pool uses SPOT capacity."
+  type        = bool
+  default     = true
+}
+
+variable "gpu_ondemand_fallback_instance_types" {
+  description = "Instance types for the On-Demand fallback GPU worker nodes."
+  type        = list(string)
+  default     = ["g4dn.xlarge"]
+}
+
+variable "gpu_ondemand_fallback_min_size" {
+  description = "Minimum number of nodes in the On-Demand fallback GPU worker pool."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.gpu_ondemand_fallback_min_size >= 0 && var.gpu_ondemand_fallback_min_size <= 2
+    error_message = "GPU On-Demand fallback min size must be between 0 and 2."
+  }
+}
+
+variable "gpu_ondemand_fallback_max_size" {
+  description = "Maximum number of nodes in the On-Demand fallback GPU worker pool."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.gpu_ondemand_fallback_max_size >= 0 && var.gpu_ondemand_fallback_max_size <= 5
+    error_message = "GPU On-Demand fallback max size must be between 0 and 5."
+  }
+}
+
+variable "gpu_ondemand_fallback_desired_size" {
+  description = "Desired number of nodes in the On-Demand fallback GPU worker pool."
+  type        = number
+  default     = 0
 }
 
 # Storage
@@ -225,17 +275,4 @@ variable "tags" {
     Service     = "Ray-ML-Platform"
     Repository  = "Terraform-Driven-Ray-on-Kubernetes-Platform"
   }
-}
-
-
-variable "enable_velero" {
-  description = "Whether to enable Velero for cluster disaster recovery and backups."
-  type        = bool
-  default     = false
-}
-
-variable "velero_backup_schedule" {
-  description = "Cron expression for automated cluster backups (default: every night at 2 AM)."
-  type        = string
-  default     = "0 2 * * *"
 }

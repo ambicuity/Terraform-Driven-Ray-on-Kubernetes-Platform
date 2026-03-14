@@ -32,6 +32,7 @@ echo "🔍 Monitoring CoreDNS Replicas (The Fix)..."
 kubectl get deployment coredns -n kube-system
 
 echo "📊 Polling AWS Auto Scaling Groups (ASG) Desired Capacity..."
+# shellcheck disable=SC2016
 aws autoscaling describe-auto-scaling-groups \
     --query 'AutoScalingGroups[?contains(Tags[?Key==`k8s.io/cluster-autoscaler/enabled`].Value, `true`)].[AutoScalingGroupName, DesiredCapacity]' \
     --output table || echo "⚠️ AWS CLI not configured, skipping ASG check."

@@ -15,3 +15,15 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.0.0.0/16"
 }
+
+variable "enable_velero" {
+  description = "Deploy Velero as part of the complete example."
+  type        = bool
+  default     = false
+}
+
+variable "velero_backup_schedule" {
+  description = "Cron expression for automated Velero backups."
+  type        = string
+  default     = "0 2 * * *"
+}

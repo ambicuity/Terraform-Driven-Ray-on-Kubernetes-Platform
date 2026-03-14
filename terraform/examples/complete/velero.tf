@@ -1,9 +1,11 @@
+data "aws_caller_identity" "current" {}
+
 # AWS S3 Bucket for Velero Backups
-# checkov:skip=CKV_AWS_144: Cross-region replication doubles storage costs
-# checkov:skip=CKV_AWS_18: Access logging creates unnecessary storage costs for automated backups
-# checkov:skip=CKV_AWS_300: Velero manages the lifecycle and retention of backups natively
-# checkov:skip=CKV2_AWS_61: Lifecycle configuration is managed by Velero naturally
-# checkov:skip=CKV2_AWS_62: Event notifications are unnecessary for automated backups
+# checkov:skip=CKV_AWS_144: Cross-region replication is an environment-level decision, not a default in the example.
+# checkov:skip=CKV_AWS_18: Access logging is omitted for the example to keep the addon footprint focused.
+# checkov:skip=CKV_AWS_300: Retention is handled by Velero schedules and backup TTL.
+# checkov:skip=CKV2_AWS_61: Lifecycle rules vary per environment and are left to consumers.
+# checkov:skip=CKV2_AWS_62: Event notifications are not required for Velero backups.
 resource "aws_s3_bucket" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = "${var.cluster_name}-velero-backups-${var.region}"
@@ -18,6 +20,7 @@ resource "aws_s3_bucket" "velero_backups" {
 resource "aws_s3_bucket_versioning" "velero_backups" {
   count  = var.enable_velero ? 1 : 0
   bucket = aws_s3_bucket.velero_backups[0].id
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -33,7 +36,7 @@ resource "aws_kms_key" "velero" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Enable IAM User Permissions"
+        Sid    = "EnableIAMUserPermissions"
         Effect = "Allow"
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
@@ -73,7 +76,6 @@ resource "aws_s3_bucket_public_access_block" "velero_backups" {
   restrict_public_buckets = true
 }
 
-# IAM Role for Velero (IRSA)
 data "aws_iam_policy_document" "velero_trust" {
   count = var.enable_velero ? 1 : 0
 
@@ -83,13 +85,19 @@ data "aws_iam_policy_document" "velero_trust" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(local.oidc_provider_url, "https://", "")}:sub"
+      variable = "${replace(module.ray_eks_cluster.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:velero:velero-server"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(module.ray_eks_cluster.cluster_oidc_issuer_url, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
     }
 
     principals {
       type        = "Federated"
-      identifiers = [local.oidc_provider_arn]
+      identifiers = [module.ray_eks_cluster.oidc_provider_arn]
     }
   }
 }
@@ -98,6 +106,7 @@ resource "aws_iam_role" "velero_irsa" {
   count              = var.enable_velero ? 1 : 0
   name               = "${var.cluster_name}-velero-irsa"
   assume_role_policy = data.aws_iam_policy_document.velero_trust[0].json
+
   tags = {
     Name        = "${var.cluster_name}-velero-irsa"
     Service     = "Ray"
@@ -134,10 +143,8 @@ data "aws_iam_policy_document" "velero_s3_ebs" {
   }
 
   statement {
-    effect = "Allow"
-    actions = [
-      "s3:ListBucket"
-    ]
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.velero_backups[0].arn]
   }
 
@@ -158,7 +165,6 @@ resource "aws_iam_role_policy" "velero_irsa_inline" {
   policy = data.aws_iam_policy_document.velero_s3_ebs[0].json
 }
 
-# Velero Helm Release
 resource "helm_release" "velero" {
   count            = var.enable_velero ? 1 : 0
   name             = "velero"
@@ -183,7 +189,7 @@ resource "helm_release" "velero" {
           provider: aws
           config:
             region: ${var.region}
-      
+
     credentials:
       useSecret: false
 
@@ -201,7 +207,7 @@ resource "helm_release" "velero" {
         volumeMounts:
           - mountPath: /target
             name: plugins
-            
+
     schedules:
       daily-cluster-backup:
         schedule: "${var.velero_backup_schedule}"
@@ -209,13 +215,14 @@ resource "helm_release" "velero" {
           ttl: "720h"
           includedNamespaces:
             - "ray-system"
-            - "kuberay-operator"
             - "kube-system"
+            - "velero"
     EOT
   ]
 
   depends_on = [
     aws_iam_role.velero_irsa,
-    aws_iam_role_policy.velero_irsa_inline
+    aws_iam_role_policy.velero_irsa_inline,
+    module.ray_eks_cluster,
   ]
 }

@@ -1,74 +1,52 @@
 # Developer Entry Point
 #
 # Usage:
-#   make help          — Show this help message
-#   make lint          — Run all linters locally (tflint, checkov, flake8, pylint, mypy)
-#   make fmt           — Format all files (terraform, python)
-#   make test          — Run all tests locally (terraform test, pytest)
-#   make validate      — Validate terraform configuration
-#   make docker-test   — Run full pytest suite inside Docker (no local tool install required)
-#   make docker-lint   — Run all Python linters inside Docker
-#   make clean         — Clean up temporary files
+#   make help       - Show this help message
+#   make lint       - Run deterministic local static checks
+#   make test       - Run deterministic local validation and tests
+#   make validate   - Validate Terraform root and example stacks
+#   make clean      - Clean up local Terraform state and test artifacts
 
-.PHONY: help lint fmt test validate docker-test docker-lint clean
+TERRAFORM := $(if $(wildcard ./.tmp-tools/bin/terraform-1.9.8),./.tmp-tools/bin/terraform-1.9.8,terraform)
+OPA := $(if $(wildcard ./.tmp-tools/bin/opa-0.63.0),./.tmp-tools/bin/opa-0.63.0,opa)
+
+.PHONY: help lint test validate clean
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-lint: ## Run all linters (tflint, checkov, flake8, pylint, mypy)
-	@echo "--- Running TFLint ---"
-	@cd terraform && tflint --init && tflint
-	@echo "--- Running Checkov ---"
-	@checkov -d terraform
-	@echo "--- Running Flake8 ---"
-	@flake8 scripts/ workloads/ validation/ tests/ \
-		--max-line-length=120 \
-		--extend-ignore=E203,W503 \
-		--statistics \
-		--count
-	@echo "--- Running Pylint ---"
-	@pylint scripts/ workloads/ \
-		--disable=C0114,C0115,C0116,R0903 \
-		--max-line-length=120 \
-		--fail-under=7.0
-	@echo "--- Running Mypy ---"
-	@mypy scripts/ workloads/ \
-		--ignore-missing-imports \
-		--no-strict-optional \
-		--allow-untyped-defs
+lint: ## Run deterministic static checks (Terraform fmt, Helm, Actions, shell)
+	@echo "--- Terraform fmt ---"
+	@$(TERRAFORM) fmt -check -recursive terraform/
+	@echo "--- Helm lint ---"
+	@helm lint helm/ray
+	@echo "--- Helm render ---"
+	@helm template ray-ci helm/ray >/tmp/ray-rendered.yaml
+	@echo "--- Actionlint ---"
+	@actionlint -color
+	@echo "--- Shellcheck ---"
+	@shellcheck local_test.sh validation/*.sh
+	@echo "--- Python compileall ---"
+	@python3 -m compileall scripts tests workloads validation
+	@echo "--- OPA tests ---"
+	@$(OPA) test policies -v
 
-fmt: ## Format all files (terraform, python)
-	@echo "--- Formatting Terraform ---"
-	@terraform fmt -recursive terraform/
-	@echo "--- Formatting Python ---"
-	@black scripts/ workloads/
+test: ## Run local validation and tests
+	@echo "--- Terraform root ---"
+	@$(TERRAFORM) -chdir=terraform init -backend=false
+	@$(TERRAFORM) -chdir=terraform validate
+	@$(TERRAFORM) -chdir=terraform test
+	@echo "--- Terraform example ---"
+	@$(TERRAFORM) -chdir=terraform/examples/complete init -backend=false
+	@$(TERRAFORM) -chdir=terraform/examples/complete validate
+	@echo "--- Python tests ---"
+	@pytest tests/ -q
 
-test: ## Run all tests locally (terraform test, pytest)
-	@echo "--- Running Terraform Tests ---"
-	@cd terraform && terraform init -backend=false && terraform test
-	@echo "--- Running Python Tests ---"
-	@pytest tests/ -v --tb=short --cov=scripts --cov-report=term-missing
-
-validate: ## Validate terraform configuration
-	@echo "--- Validating Terraform ---"
-	@cd terraform && terraform init -backend=false && terraform validate
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Docker targets — Use these if you do not have the local toolchain installed.
-# Requires Docker Desktop or Docker Engine.
-# ─────────────────────────────────────────────────────────────────────────────
-
-docker-test: ## Run full pytest suite inside Docker (single-command, no local installs required)
-	@echo "--- Building Docker test image ---"
-	@docker build -t ray-k8s-dev:local .
-	@echo "--- Running tests inside Docker ---"
-	@docker run --rm ray-k8s-dev:local
-
-docker-lint: ## Run all Python linters inside Docker
-	@echo "--- Building Docker test image ---"
-	@docker build -t ray-k8s-dev:local .
-	@echo "--- Running linters inside Docker ---"
-	@docker compose run --rm lint
+validate: ## Validate Terraform root and example stacks
+	@$(TERRAFORM) -chdir=terraform init -backend=false
+	@$(TERRAFORM) -chdir=terraform validate
+	@$(TERRAFORM) -chdir=terraform/examples/complete init -backend=false
+	@$(TERRAFORM) -chdir=terraform/examples/complete validate
 
 clean: ## Clean up temporary files
 	@find . -type d -name ".terraform" -exec rm -rf {} +

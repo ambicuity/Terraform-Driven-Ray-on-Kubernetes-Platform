@@ -5,11 +5,12 @@ resource "aws_security_group" "node" {
   vpc_id      = var.vpc_id
 
   egress {
-    description = "Allow egress routing within the VPC CIDR for pod-to-pod and AWS service communication"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    description      = "Allow worker nodes in private subnets to reach AWS APIs and upstream registries through NAT or egress controls"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
@@ -172,8 +173,10 @@ resource "aws_iam_openid_connect_provider" "cluster_unmanaged" {
 }
 
 locals {
-  oidc_provider_arn = var.enable_oidc_thumbprint_management ? aws_iam_openid_connect_provider.cluster_managed[0].arn : aws_iam_openid_connect_provider.cluster_unmanaged[0].arn
-  oidc_provider_url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+  oidc_provider_arn         = var.enable_oidc_thumbprint_management ? aws_iam_openid_connect_provider.cluster_managed[0].arn : aws_iam_openid_connect_provider.cluster_unmanaged[0].arn
+  oidc_provider_url         = aws_eks_cluster.main.identity[0].oidc[0].issuer
+  gpu_fallback_enabled      = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" && var.enable_gpu_ondemand_fallback
+  worker_security_group_ids = [aws_security_group.node.id, aws_eks_cluster.main.vpc_config[0].cluster_security_group_id]
 }
 
 # IAM Role for Nodes

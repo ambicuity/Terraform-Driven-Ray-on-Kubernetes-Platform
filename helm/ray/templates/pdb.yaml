@@ -1,8 +1,9 @@
+{{- if .Values.cpuWorkers.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: ray-cpu-worker-pdb
-  namespace: ray-system
+  name: {{ include "ray-cluster.fullname" . }}-cpu-workers
+  namespace: {{ .Release.Namespace }}
 spec:
   minAvailable: 1
   selector:
@@ -10,14 +11,17 @@ spec:
       ray.io/node-type: worker
       ray.io/resource-type: cpu
 ---
+{{- end }}
+{{- if .Values.gpuWorkers.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: ray-gpu-worker-pdb
-  namespace: ray-system
+  name: {{ include "ray-cluster.fullname" . }}-gpu-workers
+  namespace: {{ .Release.Namespace }}
 spec:
   minAvailable: 0
   selector:
     matchLabels:
       ray.io/node-type: worker
       ray.io/resource-type: gpu
+{{- end }}

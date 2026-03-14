@@ -1,60 +1,57 @@
-# Contributing Guide
+# Contributing
 
-Thank you for contributing to Terraform-Driven Ray on Kubernetes Platform.
+## Principles
 
-## Before you start
+- Keep infrastructure changes in `terraform/`
+- Keep workload changes in `helm/` or the example stack
+- Preserve path-scoped CI behavior
+- Do not reintroduce repo-owned autonomous bot workflows
 
-- Use a focused branch and keep changes scoped to one concern when possible.
-- If you are changing Terraform examples or docs, keep the Terraform module source pinned to a tag.
-- If you are changing workflows, preserve path-scoped CI behavior.
+## Local Validation
 
-## Local validation
-
-Run the checks that match the files you changed.
-
-### Infrastructure
+Preferred:
 
 ```bash
-terraform -chdir=terraform init -backend=false
-terraform -chdir=terraform validate
-terraform fmt -check -recursive terraform/
-terraform -chdir=terraform test
-opa test policies -v
+make lint
+make test
 ```
 
-### Workloads
+Equivalent direct commands:
 
 ```bash
-python -m compileall workloads validation
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform init -backend=false
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform validate
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform test
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform/examples/complete init -backend=false
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform/examples/complete validate
+./.tmp-tools/bin/opa-0.63.0 test policies -v
 helm lint helm/ray
 helm template ray-ci helm/ray >/tmp/ray-rendered.yaml
-kube-score score /tmp/ray-rendered.yaml --ignore-test container-security-context-privileged --output-format ci
+actionlint -color
+shellcheck local_test.sh validation/*.sh
+python3 -m compileall scripts tests workloads validation
+pytest tests -q
 ```
 
-### Automation
+## Review Expectations
 
-```bash
-python -m compileall scripts tests
-python -m pytest tests -q
-```
+- Infrastructure-only changes should not claim to deploy workloads
+- Spot GPU changes should keep the On-Demand fallback story explicit
+- Docs should describe the root module as infra-only
+- AI metadata is advisory only and should not become a merge gate
 
-If you changed GitHub Actions workflows, also run:
+## Pull Requests
 
-```bash
-actionlint
-```
+- Use a Conventional Commit title
+- Describe what changed, why it changed, and how you tested it
+- Use CodeRabbit, Gemini Code Assist on GitHub, or official GitHub Agentic Workflows only if you want optional advisory feedback
 
-## Pull requests
+## AI Policy
 
-- Use a Conventional Commit title such as `fix: scope CI for Terraform-only changes`.
-- Describe what changed, why it changed, and how you tested it.
-- Use CodeRabbit or Gemini Code Assist only if you want optional advisory feedback.
-
-## AI policy
-
-The supported AI surfaces are:
+The supported AI surfaces are advisory only:
 
 - CodeRabbit
 - Gemini Code Assist on GitHub
+- official GitHub Agentic Workflows
 
-Repo-owned AI workflows and autonomous PR bots are intentionally disabled in favor of a small deterministic CI surface.
+Do not reintroduce repo-owned autonomous PR bots or custom hidden agent runtimes.

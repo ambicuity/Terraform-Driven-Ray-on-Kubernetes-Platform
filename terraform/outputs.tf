@@ -72,6 +72,26 @@ output "gpu_node_group_status" {
   value       = var.enable_gpu_nodes ? aws_eks_node_group.gpu_workers[0].status : null
 }
 
+output "gpu_primary_node_group_id" {
+  description = "Primary GPU node group ID"
+  value       = var.enable_gpu_nodes ? aws_eks_node_group.gpu_workers[0].id : null
+}
+
+output "gpu_primary_node_group_status" {
+  description = "Primary GPU node group status"
+  value       = var.enable_gpu_nodes ? aws_eks_node_group.gpu_workers[0].status : null
+}
+
+output "gpu_fallback_node_group_id" {
+  description = "On-Demand fallback GPU node group ID"
+  value       = local.gpu_fallback_enabled ? aws_eks_node_group.gpu_ondemand_fallback[0].id : null
+}
+
+output "gpu_fallback_node_group_status" {
+  description = "On-Demand fallback GPU node group status"
+  value       = local.gpu_fallback_enabled ? aws_eks_node_group.gpu_ondemand_fallback[0].status : null
+}
+
 # Security
 output "cluster_security_group_id" {
   description = "Cluster security group ID"
@@ -100,11 +120,6 @@ output "cluster_autoscaler_iam_role_arn" {
   value       = var.enable_cluster_autoscaler ? aws_iam_role.cluster_autoscaler[0].arn : null
 }
 
-output "node_termination_handler_iam_role_arn" {
-  description = "IAM Role ARN for the AWS Node Termination Handler (IRSA)"
-  value       = var.enable_gpu_nodes && var.gpu_capacity_type == "SPOT" ? aws_iam_role.node_termination_handler[0].arn : null
-}
-
 # Monitoring
 output "cloudwatch_log_group" {
   description = "CloudWatch log group name"
@@ -123,7 +138,7 @@ output "resource_tags" {
   value = merge(
     var.tags,
     {
-      ManagedBy   = "github-app"
+      ManagedBy   = "Terraform"
       Repository  = var.repo_name
       Commit      = var.commit_sha
       Environment = var.environment
@@ -134,7 +149,7 @@ output "resource_tags" {
 # Cost Estimation
 output "estimated_monthly_cost" {
   description = "Rough monthly cost estimate (USD)"
-  value       = "Estimate: ${var.cpu_node_desired_size * 70 + (var.enable_gpu_nodes ? var.gpu_node_desired_size * 2160 : 0)} USD/month (approximate)"
+  value       = "Estimate: ${var.cpu_node_desired_size * 70 + (var.enable_gpu_nodes ? var.gpu_node_desired_size * 2160 : 0) + (local.gpu_fallback_enabled ? var.gpu_ondemand_fallback_desired_size * 526 : 0)} USD/month (approximate)"
 }
 
 # Access Instructions
@@ -153,15 +168,6 @@ output "access_instructions" {
        Open: http://localhost:8265
     
     4. Deploy Ray cluster:
-       See GitHub Actions workflow for automated deployment
+       Install the KubeRay operator and deploy the chart in helm/ray or use terraform/examples/complete
   EOT
-}
-output "velero_backup_bucket_name" {
-  description = "The name of the S3 bucket used for Velero cluster backups"
-  value       = var.enable_velero ? aws_s3_bucket.velero_backups[0].id : null
-}
-
-output "velero_iam_role_arn" {
-  description = "The ARN of the IAM Role for Service Accounts (IRSA) used by Velero"
-  value       = var.enable_velero ? aws_iam_role.velero_irsa[0].arn : null
 }
