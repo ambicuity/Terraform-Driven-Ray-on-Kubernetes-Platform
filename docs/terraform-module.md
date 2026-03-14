@@ -1,212 +1,100 @@
 # Terraform Module Reference
 
-Complete reference for the `Terraform-Driven-Ray-on-Kubernetes-Platform` module.
+The root module in `terraform/` provisions the EKS platform. It intentionally does not deploy Helm workloads or Velero.
 
-## Provider Requirements
+## Requirements
 
-| Provider | Source | Version |
-|----------|--------|---------|
-| `aws` | `hashicorp/aws` | `>= 5.0` |
-| `tls` | `hashicorp/tls` | `>= 4.0` |
-| `kubernetes` | `hashicorp/kubernetes` | `>= 2.0` |
+- Terraform `>= 1.6.0`
+- AWS provider `>= 5.0`
+- TLS provider `>= 4.0`
 
-**Terraform**: `>= 1.6.0`
+For local validation, the repository bundles `.tmp-tools/bin/terraform-1.9.8`.
 
-## File Structure
+## Important Inputs
 
-| File | Purpose |
-|------|---------|
-| `main.tf` | Core resources — EKS cluster, IAM roles, KMS, OIDC, security groups, CloudWatch, EKS addons |
-| `node_pools.tf` | CPU/GPU node groups, launch templates, Cluster Autoscaler IAM, Node Termination Handler |
-| `variables.tf` | All input variables with validation rules |
-| `outputs.tf` | All module outputs |
-| `versions.tf` | Terraform and provider version constraints |
-| `user-data.sh` | CPU node bootstrap script (kubelet + CloudWatch agent) |
-| `user-data-gpu.sh` | GPU node bootstrap script (kubelet + NVIDIA drivers + container runtime) |
+Core:
 
-## Inputs
+- `cluster_name`
+- `region`
+- `vpc_id`
+- `subnet_ids`
+- `kubernetes_version`
+- `enable_oidc_thumbprint_management`
 
-### Core Configuration
+CPU pool:
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `region` | `string` | `"us-east-1"` | AWS region |
-| `environment` | `string` | `"production"` | Environment name. Must be `dev`, `staging`, or `production` |
-| `cluster_name` | `string` | `"ray-ml-cluster"` | EKS cluster name |
-| `repo_name` | `string` | `"unknown"` | GitHub repo name for resource tagging |
-| `commit_sha` | `string` | `"unknown"` | Git commit SHA for resource tagging |
+- `cpu_node_instance_types`
+- `cpu_node_min_size`
+- `cpu_node_desired_size`
+- `cpu_node_max_size`
+- `cpu_capacity_type`
 
-### Networking (Required)
+GPU pool:
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `vpc_id` | `string` | — | **Required.** ID of existing VPC |
-| `subnet_ids` | `list(string)` | — | **Required.** Subnet IDs (preferably private) |
+- `enable_gpu_nodes`
+- `gpu_node_instance_types`
+- `gpu_node_min_size`
+- `gpu_node_desired_size`
+- `gpu_node_max_size`
+- `gpu_capacity_type`
 
-### EKS Configuration
+GPU fallback:
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `kubernetes_version` | `string` | `"1.31"` | Kubernetes version |
-| `kms_key_arn` | `string` | `""` | KMS key ARN for secret encryption. Empty → creates new key |
-| `cluster_endpoint_public_access` | `bool` | `false` | Enable public endpoint access |
-| `eks_addons` | `map(any)` | vpc-cni, kube-proxy, coredns | EKS managed addons |
+- `enable_gpu_ondemand_fallback`
+- `gpu_ondemand_fallback_instance_types`
+- `gpu_ondemand_fallback_min_size`
+- `gpu_ondemand_fallback_desired_size`
+- `gpu_ondemand_fallback_max_size`
 
-### CPU Node Pool
+Platform features:
 
-| Variable | Type | Default | Validation |
-|----------|------|---------|------------|
-| `cpu_node_instance_types` | `list(string)` | `["m6g.xlarge", "m6g.2xlarge"]` | — |
-| `cpu_node_min_size` | `number` | `2` | 1–10 |
-| `cpu_node_max_size` | `number` | `10` | 1–20 |
-| `cpu_node_desired_size` | `number` | `3` | — |
-| `cpu_capacity_type` | `string` | `"ON_DEMAND"` | `ON_DEMAND` or `SPOT` |
+- `enable_cluster_autoscaler`
+- `enable_ebs_csi_driver`
+- `enable_cloudwatch_logs`
+- `log_retention_days`
+- `eks_addons`
+- `tags`
 
-### GPU Node Pool
+Removed from the root module:
 
-| Variable | Type | Default | Validation |
-|----------|------|---------|------------|
-| `enable_gpu_nodes` | `bool` | `true` | — |
-| `gpu_node_instance_types` | `list(string)` | `["g4dn.xlarge", "g4dn.2xlarge"]` | — |
-| `gpu_node_min_size` | `number` | `0` | 0–5 |
-| `gpu_node_max_size` | `number` | `5` | 0–10 |
-| `gpu_node_desired_size` | `number` | `0` | — |
-| `gpu_capacity_type` | `string` | `"SPOT"` | `ON_DEMAND` or `SPOT` |
+- `enable_velero`
+- `velero_backup_schedule`
+- Velero-specific outputs
 
-### Features
+Those concerns now live in `terraform/examples/complete/`.
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `enable_ebs_csi_driver` | `bool` | `true` | Attach EBS CSI IAM policy to node role |
-| `enable_cluster_autoscaler` | `bool` | `true` | Create Cluster Autoscaler IRSA role |
-| `enable_cloudwatch_logs` | `bool` | `true` | Ship control plane logs to CloudWatch |
-| `log_retention_days` | `number` | `365` | CloudWatch log retention |
-| `tags` | `map(string)` | `{}` | Additional tags for all resources |
+## Important Outputs
 
-## Outputs
+- `cluster_name`
+- `cluster_endpoint`
+- `cluster_certificate_authority`
+- `cluster_oidc_issuer_url`
+- `oidc_provider_arn`
+- `cpu_node_group_id`
+- `gpu_node_group_id`
+- `gpu_primary_node_group_id`
+- `gpu_fallback_node_group_id`
+- `cluster_autoscaler_iam_role_arn`
+- `kubeconfig_command`
 
-### Cluster
+## Behavior Notes
 
-| Output | Description | Sensitive |
-|--------|-------------|-----------|
-| `cluster_id` | EKS cluster ID | No |
-| `cluster_name` | EKS cluster name | No |
-| `cluster_endpoint` | API server endpoint URL | No |
-| `cluster_version` | Kubernetes version | No |
-| `cluster_arn` | Cluster ARN | No |
-| `cluster_certificate_authority` | Base64-encoded CA cert | **Yes** |
-| `cluster_oidc_issuer_url` | OIDC issuer URL | No |
+- The root module attaches the documented launch templates to the EKS node groups.
+- When `gpu_capacity_type = "SPOT"` and `enable_gpu_ondemand_fallback = true`, an additional On-Demand fallback GPU node group is created automatically.
+- The module still creates EKS managed addons because they are platform infrastructure, not application workloads.
+- Workload deployment belongs in `helm/ray/` or `terraform/examples/complete/`.
 
-### Access
-
-| Output | Description |
-|--------|-------------|
-| `kubeconfig_command` | `aws eks update-kubeconfig ...` command |
-| `kubeconfig_path` | Suggested kubeconfig file path |
-| `access_instructions` | Step-by-step cluster access guide |
-
-### Node Groups
-
-| Output | Description |
-|--------|-------------|
-| `cpu_node_group_id` | CPU node group ID |
-| `cpu_node_group_status` | CPU node group health status |
-| `gpu_node_group_id` | GPU node group ID (null if disabled) |
-| `gpu_node_group_status` | GPU node group health status |
-
-### Security
-
-| Output | Description |
-|--------|-------------|
-| `cluster_security_group_id` | EKS-managed cluster SG |
-| `node_security_group_id` | Custom node SG |
-| `cluster_iam_role_arn` | Cluster service role ARN |
-| `node_iam_role_arn` | Node instance role ARN |
-| `cluster_autoscaler_iam_role_arn` | IRSA role for Cluster Autoscaler |
-| `node_termination_handler_iam_role_arn` | IRSA role for NTH (Spot only) |
-
-### Monitoring & Cost
-
-| Output | Description |
-|--------|-------------|
-| `cloudwatch_log_group` | Log group name |
-| `region` | Deployed region |
-| `resource_tags` | Merged tag map |
-| `estimated_monthly_cost` | Approximate cost string |
-
-## Consumer Pinning
-
-When consuming this repository directly from GitHub, pin the module to a tag:
-
-```hcl
-source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
-```
-
-Do not use a floating `source = "github.com/..."` reference in production.
-
-## Usage Examples
-
-### Minimal
-
-```hcl
-module "ray_eks_cluster" {
-  source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
-
-  cluster_name = "my-ray-cluster"
-  region       = "us-east-1"
-  vpc_id       = "vpc-0abcd1234efgh5678"
-  subnet_ids   = ["subnet-aaa", "subnet-bbb"]
-}
-```
-
-### Production with GPU
-
-```hcl
-module "ray_eks_cluster" {
-  source = "git::https://github.com/ambicuity/Terraform-Driven-Ray-on-Kubernetes-Platform.git//terraform?ref=v1.0.0"
-
-  cluster_name = "prod-ray-cluster"
-  region       = "us-east-1"
-  environment  = "production"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  cpu_node_min_size     = 2
-  cpu_node_max_size     = 10
-  cpu_node_desired_size = 3
-
-  enable_gpu_nodes      = true
-  gpu_node_min_size     = 0
-  gpu_node_max_size     = 5
-  gpu_node_desired_size = 0
-  gpu_capacity_type     = "SPOT"
-
-  tags = {
-    Team    = "ml-platform"
-    CostCenter = "engineering"
-  }
-}
-```
-
-### Complete Example with Helm
-
-See [`examples/complete/`](../terraform/examples/complete/) for a fully runnable deployment that includes:
-- VPC provisioning via `terraform-aws-modules/vpc/aws`
-- Cluster Autoscaler Helm chart
-- KubeRay Operator Helm chart
-
-This example intentionally keeps infrastructure and workload add-ons in one Terraform stack. The repository mitigates the blast radius of that choice with path-scoped CI rather than a repo split.
-
-## Testing
-
-The module includes a native Terraform test at `terraform/tests/module.tftest.hcl` using `mock_provider` for offline validation:
+## Local Commands
 
 ```bash
-terraform test
+make lint
+make test
 ```
 
-This validates:
-- Cluster name propagation
-- CPU nodes default to `ON_DEMAND`
-- GPU nodes default to `SPOT`
+Or directly:
+
+```bash
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform init -backend=false
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform validate
+./.tmp-tools/bin/terraform-1.9.8 -chdir=terraform test
+```

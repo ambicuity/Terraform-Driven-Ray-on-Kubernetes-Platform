@@ -16,6 +16,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ── Colour helpers ───────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
@@ -27,15 +29,27 @@ header()  { echo -e "\n${BOLD}${BLUE}══════════════�
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PROFILE="ray-local"
-MEMORY="6144"          # MB — increased to 6GB to prevent Ray dashboard OOM-kills
-CPUS="4"
+MEMORY=6144           # MB — target upper bound, adjusted to fit local Docker memory if needed
+CPUS=4
 KUBERNETES_VERSION="v1.29.3"
 KUBERAY_OPERATOR_VERSION="1.1.1"
 RAY_CLUSTER_NAMESPACE="ray-system"
-RAY_CLUSTER_NAME="raycluster-local"
+HELM_RELEASE="ray-cluster"
+RAY_CLUSTER_NAME="ray-cluster"
+LOCAL_VALUES_FILE="$SCRIPT_DIR/validation/local-chart-values.yaml"
 VALIDATION_TIMEOUT=180 # seconds to wait for the Ray head pod
 PASS=0
 FAIL=0
+TEMP_KUBECONFIG=""
+
+# shellcheck disable=SC2329
+cleanup() {
+  if [[ -n "${TEMP_KUBECONFIG:-}" && -f "$TEMP_KUBECONFIG" ]]; then
+    rm -f "$TEMP_KUBECONFIG"
+  fi
+}
+
+trap cleanup EXIT
 
 # ── Teardown guard ────────────────────────────────────────────────────────────
 if [[ "${1:-}" == "--teardown" ]]; then
@@ -62,11 +76,13 @@ install_brew_pkg() {
 
 # Determine native architecture to pull the optimal Ray Docker image
 if [[ "$(uname -m)" == "arm64" || "$(uname -m)" == "aarch64" ]]; then
-  RAY_IMAGE="rayproject/ray:2.9.3-py310-aarch64"
+  RAY_IMAGE_REPOSITORY="rayproject/ray"
+  RAY_IMAGE_TAG="2.9.3-py310-aarch64"
 else
-  RAY_IMAGE="rayproject/ray:2.9.3-py310"
+  RAY_IMAGE_REPOSITORY="rayproject/ray"
+  RAY_IMAGE_TAG="2.9.3-py310"
 fi
-info "Host architecture is $(uname -m). Selected Ray Image: $RAY_IMAGE"
+info "Host architecture is $(uname -m). Selected Ray Image: ${RAY_IMAGE_REPOSITORY}:${RAY_IMAGE_TAG}"
 
 install_brew_pkg minikube minikube
 install_brew_pkg helm     helm
@@ -74,7 +90,7 @@ install_brew_pkg kubectl  kubectl
 install_brew_pkg python3  python3
 
 # Ensure required Python packages are available (local venv to keep system clean)
-VENV_DIR="$(pwd)/.venv-ray-test"
+VENV_DIR="$SCRIPT_DIR/.venv-ray-test"
 if [[ ! -d "$VENV_DIR" ]]; then
   info "Creating Python venv at $VENV_DIR …"
   python3 -m venv "$VENV_DIR"
@@ -100,6 +116,18 @@ if command -v colima &>/dev/null; then
   export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
 fi
 
+if command -v docker &>/dev/null; then
+  DOCKER_MEMORY_BYTES="$(docker info --format '{{.MemTotal}}' 2>/dev/null || echo 0)"
+  if [[ "$DOCKER_MEMORY_BYTES" =~ ^[0-9]+$ ]] && (( DOCKER_MEMORY_BYTES > 0 )); then
+    DOCKER_MEMORY_MB=$((DOCKER_MEMORY_BYTES / 1024 / 1024))
+    SAFE_MEMORY_MB=$((DOCKER_MEMORY_MB - 256))
+    if (( SAFE_MEMORY_MB < MEMORY )); then
+      MEMORY=$SAFE_MEMORY_MB
+      info "Adjusted minikube memory to ${MEMORY}MB to fit the active Docker runtime."
+    fi
+  fi
+fi
+
 # ── Step 2 — Start minikube ───────────────────────────────────────────────────
 header "Step 2 — Starting minikube ($PROFILE)"
 
@@ -119,12 +147,11 @@ else
 fi
 
 # Point kubectl at our profile
-export KUBECONFIG
-KUBECONFIG="$(minikube -p "$PROFILE" kubectl -- config view --raw 2>/dev/null)" || true
-minikube update-context --profile "$PROFILE"
+TEMP_KUBECONFIG="$(mktemp "${TMPDIR:-/tmp}/ray-local-kubeconfig.XXXXXX")"
+minikube -p "$PROFILE" kubectl -- config view --raw > "$TEMP_KUBECONFIG"
+export KUBECONFIG="$TEMP_KUBECONFIG"
 
-kubectl cluster-info --context "minikube-${PROFILE}" 2>/dev/null \
-  || kubectl cluster-info   # fallback — minikube sets the current context
+kubectl cluster-info
 
 # ── Step 3 — Install KubeRay operator via Helm ───────────────────────────────
 header "Step 3 — Installing KubeRay Operator v${KUBERAY_OPERATOR_VERSION}"
@@ -149,87 +176,31 @@ else
   success "KubeRay operator installed."
 fi
 
-# ── Step 4 — Deploy minimal RayCluster ───────────────────────────────────────
+# ── Step 4 — Deploy minimal RayCluster via the real Helm chart ───────────────
 header "Step 4 — Deploying RayCluster ($RAY_CLUSTER_NAME)"
 
-# A resource-constrained cluster suitable for a MacBook M2.
-cat <<EOF | kubectl apply -f -
-apiVersion: ray.io/v1
-kind: RayCluster
-metadata:
-  name: ${RAY_CLUSTER_NAME}
-  namespace: ${RAY_CLUSTER_NAMESPACE}
-  labels:
-    app: ray-local-test
-spec:
-  rayVersion: "2.9.3"
-  headGroupSpec:
-    rayStartParams:
-      dashboard-host: "0.0.0.0"
-      num-cpus: "1"
-      object-store-memory: "536870912"
-    template:
-      spec:
-        containers:
-          - name: ray-head
-            image: $RAY_IMAGE
-            livenessProbe:
-              initialDelaySeconds: 30
-              timeoutSeconds: 5
-              periodSeconds: 10
-              exec:
-                command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
-            readinessProbe:
-              initialDelaySeconds: 30
-              timeoutSeconds: 5
-              periodSeconds: 10
-              exec:
-                command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
-            resources:
-              requests:
-                cpu: "500m"
-                memory: "2Gi"
-              limits:
-                cpu: "2"
-                memory: "3Gi"
-            ports:
-              - containerPort: 6379  # GCS
-              - containerPort: 8265  # Dashboard
-              - containerPort: 10001 # Client
-  workerGroupSpecs:
-    - groupName: cpu-group
-      replicas: 1
-      minReplicas: 1
-      maxReplicas: 2
-      rayStartParams:
-        num-cpus: "1"
-        object-store-memory: "536870912"
-      template:
-        spec:
-          containers:
-            - name: ray-worker
-              image: $RAY_IMAGE
-              livenessProbe:
-                initialDelaySeconds: 30
-                timeoutSeconds: 5
-                periodSeconds: 10
-                exec:
-                  command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success"]
-              readinessProbe:
-                initialDelaySeconds: 30
-                timeoutSeconds: 5
-                periodSeconds: 10
-                exec:
-                  command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success"]
-              resources:
-                requests:
-                  cpu: "500m"
-                  memory: "1Gi"
-                limits:
-                  cpu: "1"
-                  memory: "2Gi"
-EOF
-success "RayCluster manifest applied."
+if helm status "$HELM_RELEASE" -n "$RAY_CLUSTER_NAMESPACE" &>/dev/null; then
+  info "Removing existing Ray chart release to avoid stale RayCluster fields…"
+  helm uninstall "$HELM_RELEASE" -n "$RAY_CLUSTER_NAMESPACE" >/dev/null
+  kubectl wait \
+    --for=delete "raycluster/${RAY_CLUSTER_NAME}" \
+    --namespace "$RAY_CLUSTER_NAMESPACE" \
+    --timeout=180s >/dev/null 2>&1 || true
+  kubectl delete pods \
+    -n "$RAY_CLUSTER_NAMESPACE" \
+    -l "ray.io/cluster=${RAY_CLUSTER_NAME}" \
+    --ignore-not-found >/dev/null 2>&1 || true
+fi
+
+kubectl delete raycluster raycluster-local -n "$RAY_CLUSTER_NAMESPACE" --ignore-not-found >/dev/null 2>&1 || true
+helm install "$HELM_RELEASE" "$SCRIPT_DIR/helm/ray" \
+  --namespace "$RAY_CLUSTER_NAMESPACE" \
+  --values "$LOCAL_VALUES_FILE" \
+  --set image.repository="$RAY_IMAGE_REPOSITORY" \
+  --set image.tag="$RAY_IMAGE_TAG" \
+  --wait \
+  --timeout 5m
+success "RayCluster chart installed."
 
 # ── Step 5 — Wait for Ray head pod to be Ready ───────────────────────────────
 header "Step 5 — Waiting for Ray head pod (timeout=${VALIDATION_TIMEOUT}s)"
@@ -237,8 +208,10 @@ header "Step 5 — Waiting for Ray head pod (timeout=${VALIDATION_TIMEOUT}s)"
 info "Waiting for KubeRay to create the head pod…"
 DEADLINE=$(( $(date +%s) + VALIDATION_TIMEOUT ))
 while true; do
-  POD_COUNT=$(kubectl get pods -n "$RAY_CLUSTER_NAMESPACE" \
-    -l "ray.io/node-type=head" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  POD_COUNT="$(kubectl get pods \
+    -n "$RAY_CLUSTER_NAMESPACE" \
+    -l "ray.io/node-type=head,ray.io/cluster=${RAY_CLUSTER_NAME}" \
+    --no-headers 2>/dev/null | wc -l | tr -d ' ')"
   [[ "$POD_COUNT" -gt 0 ]] && break
   if [[ $(date +%s) -ge $DEADLINE ]]; then
     fail "Timed out waiting for head pod to be created by KubeRay operator."
@@ -246,16 +219,17 @@ while true; do
   info "  No head pod yet — waiting 10s (timeout in $(( DEADLINE - $(date +%s) ))s)…"
   sleep 10
 done
+
+HEAD_POD="$(kubectl get pods \
+  -n "$RAY_CLUSTER_NAMESPACE" \
+  -l "ray.io/node-type=head,ray.io/cluster=${RAY_CLUSTER_NAME}" \
+  -o jsonpath='{.items[0].metadata.name}')"
 info "Head pod created. Waiting for Ready condition…"
-kubectl wait pods \
+kubectl wait "pod/${HEAD_POD}" \
   --namespace "$RAY_CLUSTER_NAMESPACE" \
   --for=condition=Ready \
-  --selector="ray.io/node-type=head" \
   --timeout="${VALIDATION_TIMEOUT}s"
 
-HEAD_POD=$(kubectl get pods -n "$RAY_CLUSTER_NAMESPACE" \
-  -l "ray.io/node-type=head" \
-  -o jsonpath='{.items[0].metadata.name}')
 success "Head pod ready: $HEAD_POD"
 
 # Wait for the worker pod to also appear and become Ready.
@@ -263,8 +237,10 @@ success "Head pod ready: $HEAD_POD"
 info "Waiting for KubeRay to create the worker pod…"
 DEADLINE2=$(( $(date +%s) + VALIDATION_TIMEOUT ))
 while true; do
-  W_COUNT=$(kubectl get pods -n "$RAY_CLUSTER_NAMESPACE" \
-    -l "ray.io/node-type=worker" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  W_COUNT="$(kubectl get pods \
+    -n "$RAY_CLUSTER_NAMESPACE" \
+    -l "ray.io/node-type=worker,ray.io/cluster=${RAY_CLUSTER_NAME}" \
+    --no-headers 2>/dev/null | wc -l | tr -d ' ')"
   [[ "$W_COUNT" -gt 0 ]] && break
   if [[ $(date +%s) -ge $DEADLINE2 ]]; then
     warn "Worker pod never appeared — continuing without it."
@@ -274,15 +250,23 @@ while true; do
   sleep 10
 done
 # Best-effort wait; if worker isn't ready, validations mark it accordingly.
-kubectl wait pods \
+if kubectl wait pods \
   --namespace "$RAY_CLUSTER_NAMESPACE" \
   --for=condition=Ready \
-  --selector="ray.io/node-type=worker" \
-  --timeout=120s 2>/dev/null && success "Worker pod ready." \
-  || warn "Worker pod wait timed out — some validations may fail."
+  --selector="ray.io/node-type=worker,ray.io/cluster=${RAY_CLUSTER_NAME}" \
+  --timeout=120s 2>/dev/null; then
+  success "Worker pod ready."
+else
+  warn "Worker pod wait timed out — some validations may fail."
+fi
 
 info "Allowing 15s for raylets to register in GCS…"
 sleep 15
+
+HEAD_POD="$(kubectl get pods \
+  -n "$RAY_CLUSTER_NAMESPACE" \
+  -l "ray.io/node-type=head,ray.io/cluster=${RAY_CLUSTER_NAME}" \
+  -o jsonpath='{.items[0].metadata.name}')"
 
 # ── Validation helpers ────────────────────────────────────────────────────────
 run_validation() {

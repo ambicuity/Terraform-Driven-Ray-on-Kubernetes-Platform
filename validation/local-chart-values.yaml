@@ -1,0 +1,50 @@
+fullnameOverride: ray-cluster
+
+head:
+  rayStartParams:
+    dashboard-host: "0.0.0.0"
+    num-cpus: "1"
+    object-store-memory: "536870912"
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "3Gi"
+
+  readinessProbe:
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+    exec:
+      command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
+
+  livenessProbe:
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+    exec:
+      command: ["bash", "-c", "wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz | grep success && wget -T 2 -q -O- http://localhost:8265/api/gcs_healthz | grep success"]
+
+cpuWorkers:
+  replicas: 1
+  minReplicas: 1
+  maxReplicas: 2
+  nodeSelector: null
+
+  rayStartParams:
+    num-cpus: "1"
+    object-store-memory: "536870912"
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+
+gpuWorkers:
+  enabled: false

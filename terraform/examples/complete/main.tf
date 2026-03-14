@@ -6,12 +6,6 @@ data "aws_eks_cluster_auth" "cluster" {
   name = module.ray_eks_cluster.cluster_name
 }
 
-provider "kubernetes" {
-  host                   = module.ray_eks_cluster.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.ray_eks_cluster.cluster_certificate_authority)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
 module "vpc" {
   # checkov:skip=CKV_TF_1: Version-pinned registry module — commit hash not applicable for public registry sources
   source  = "terraform-aws-modules/vpc/aws"

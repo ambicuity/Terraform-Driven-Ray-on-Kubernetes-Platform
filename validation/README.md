@@ -1,49 +1,33 @@
-# Cluster Resilience Validation Suite
+# Validation Runbook
 
-This directory contains executable scripts to empirically validate the mitigations built into this platform against a live Kubernetes cluster.
+This directory contains validation helpers for the platform and workload layers.
 
-Synthetic logs are unconvincing. Run these scripts against your provisioned cluster to generate real-world metric evidence.
+## Local
 
-## Prerequisites
+Run the chart-backed minikube harness:
 
-1.  Provision the cluster using the Terraform module:
-    ```bash
-    cd ../terraform
-    terraform init
-    terraform apply
-    aws eks --region us-east-1 update-kubeconfig --name production-ray-cluster
-    ```
-2.  Install KubeRay operator (done via Helm in the module) and ensure worker nodes are available.
-3.  Ensure `ray` and `kubernetes` python packages are installed locally:
-    ```bash
-    pip install ray[default] kubernetes
-    ```
-
-## Executable Validations
-
-### 1. High Availability (HA) & MTTR Validation
-Simulates a node loss/spot interruption and verifies that tasks recover and Ray Serve drops 0 requests (mitigating the legendary 502 error problem).
 ```bash
-python ../workloads/ha_resilience_test.py
-python ../workloads/chaos_test.py
+./local_test.sh
 ```
 
-### 2. CoreDNS Scale-out Verification
-Triggers a massive 200-node scale-out event and verifies that the CoreDNS replica configuration prevents DNS DoS throttling.
-```bash
-chmod +x test_scale_event.sh
-./test_scale_event.sh
-```
+The harness now:
 
-### 3. GPU Pod Density Math Validation
-Proves mathematically that the AWS VPC CNI Prefix Delegation fix is active, allowing `g4dn.xlarge` instances to host 100+ pods instead of the default 14.
-```bash
-chmod +x test_gpu_density.sh
-./test_gpu_density.sh
-```
+- installs KubeRay
+- installs the real `helm/ray` chart with `validation/local-chart-values.yaml`
+- waits for the resulting Ray pods
+- runs smoke validations against the live local cluster
 
-### 4. Memory Stress Object Spilling Validation
-Injects a heavy PyTorch-style data loading script that forcibly exceeds the Ray object store limit, verifying that Ray spills gracefully to the memory-backed `emptyDir` (`/tmp/ray`) rather than causing a Kubelet root disk `DiskPressure` node eviction.
-```bash
-python test_memory_spill.py
-```
+## Structural Safety Checks
+
+The Spot GPU fallback design is validated offline, not through a fake local Spot reclamation:
+
+- Terraform tests assert Spot primary + On-Demand fallback by default
+- OPA policy rejects Spot GPU plans without a fallback node group
+
+## Live Cluster Scripts
+
+- `test_scale_event.sh` checks cluster-autoscaler/CoreDNS behavior on a live cluster
+- `test_gpu_density.sh` checks GPU node pod density on a live cluster
+- `test_memory_spill.py` checks Ray object spilling behavior
+
+These scripts are for real Kubernetes environments. They are not required for the local minikube smoke path.

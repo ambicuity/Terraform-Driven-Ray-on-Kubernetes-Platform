@@ -1,0 +1,176 @@
+{{- $fullName := include "ray-cluster.fullname" . -}}
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "ray-cluster.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    ray.io/node-type: head
+    app: ray
+spec:
+  rayVersion: {{ .Values.rayVersion | quote }}
+  enableInTreeAutoscaling: {{ .Values.autoscaler.enableInTreeAutoscaling }}
+  autoscalerOptions:
+    idleTimeoutSeconds: {{ .Values.autoscaler.idleTimeoutSeconds }}
+    upscalingMode: {{ .Values.autoscaler.upscalingMode | quote }}
+    resources:
+{{ toYaml .Values.autoscaler.resources | indent 6 }}
+  headGroupSpec:
+    serviceType: {{ .Values.head.service.type }}
+    rayStartParams:
+{{ toYaml .Values.head.rayStartParams | indent 6 }}
+    template:
+      metadata:
+        labels:
+{{ toYaml .Values.head.labels | indent 10 }}
+        {{- with .Values.head.annotations }}
+        annotations:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+      spec:
+        serviceAccountName: {{ include "ray-cluster.serviceAccountName" . }}
+        terminationGracePeriodSeconds: {{ .Values.head.terminationGracePeriodSeconds }}
+        {{- with .Values.head.nodeSelector }}
+        nodeSelector:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with .Values.head.tolerations }}
+        tolerations:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with .Values.head.topologySpreadConstraints }}
+        topologySpreadConstraints:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        containers:
+          - name: ray-head
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            ports:
+              - containerPort: 6379
+                name: redis
+              - containerPort: 8265
+                name: dashboard
+              - containerPort: 10001
+                name: client
+            env:
+{{ toYaml .Values.head.env | indent 14 }}
+            resources:
+{{ toYaml .Values.head.resources | indent 14 }}
+            volumeMounts:
+{{ toYaml .Values.head.volumeMounts | indent 14 }}
+            readinessProbe:
+{{ toYaml .Values.head.readinessProbe | indent 14 }}
+            livenessProbe:
+{{ toYaml .Values.head.livenessProbe | indent 14 }}
+            lifecycle:
+{{ toYaml .Values.head.lifecycle | indent 14 }}
+        volumes:
+{{ toYaml .Values.head.volumes | indent 10 }}
+  workerGroupSpecs:
+    {{- if .Values.cpuWorkers.enabled }}
+    - groupName: {{ .Values.cpuWorkers.groupName | quote }}
+      replicas: {{ .Values.cpuWorkers.replicas }}
+      minReplicas: {{ .Values.cpuWorkers.minReplicas }}
+      maxReplicas: {{ .Values.cpuWorkers.maxReplicas }}
+      rayStartParams:
+{{ toYaml .Values.cpuWorkers.rayStartParams | indent 8 }}
+      template:
+        metadata:
+          labels:
+{{ toYaml .Values.cpuWorkers.labels | indent 12 }}
+        spec:
+          serviceAccountName: {{ include "ray-cluster.serviceAccountName" . }}
+          {{- with .Values.cpuWorkers.nodeSelector }}
+          nodeSelector:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.cpuWorkers.tolerations }}
+          tolerations:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.cpuWorkers.topologySpreadConstraints }}
+          topologySpreadConstraints:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.cpuWorkers.initContainers }}
+          initContainers:
+            {{- range . }}
+            - name: {{ .name }}
+              image: {{ .image | quote }}
+              command:
+{{ toYaml .command | indent 16 }}
+              args:
+{{ toYaml .args | indent 16 }}
+              env:
+                - name: RAY_IP
+                  value: {{ printf "%s-head-svc" $fullName | quote }}
+              resources:
+{{ toYaml .resources | indent 16 }}
+            {{- end }}
+          {{- end }}
+          containers:
+            - name: ray-worker
+              image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+              imagePullPolicy: {{ $.Values.image.pullPolicy }}
+              resources:
+{{ toYaml $.Values.cpuWorkers.resources | indent 16 }}
+              volumeMounts:
+{{ toYaml $.Values.cpuWorkers.volumeMounts | indent 16 }}
+          volumes:
+{{ toYaml $.Values.cpuWorkers.volumes | indent 12 }}
+    {{- end }}
+    {{- if .Values.gpuWorkers.enabled }}
+    - groupName: {{ .Values.gpuWorkers.groupName | quote }}
+      replicas: {{ .Values.gpuWorkers.replicas }}
+      minReplicas: {{ .Values.gpuWorkers.minReplicas }}
+      maxReplicas: {{ .Values.gpuWorkers.maxReplicas }}
+      rayStartParams:
+{{ toYaml .Values.gpuWorkers.rayStartParams | indent 8 }}
+      template:
+        metadata:
+          labels:
+{{ toYaml .Values.gpuWorkers.labels | indent 12 }}
+        spec:
+          serviceAccountName: {{ include "ray-cluster.serviceAccountName" . }}
+          {{- with .Values.gpuWorkers.nodeSelector }}
+          nodeSelector:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.gpuWorkers.tolerations }}
+          tolerations:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.gpuWorkers.topologySpreadConstraints }}
+          topologySpreadConstraints:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with .Values.gpuWorkers.initContainers }}
+          initContainers:
+            {{- range . }}
+            - name: {{ .name }}
+              image: {{ .image | quote }}
+              command:
+{{ toYaml .command | indent 16 }}
+              args:
+{{ toYaml .args | indent 16 }}
+              env:
+                - name: RAY_IP
+                  value: {{ printf "%s-head-svc" $fullName | quote }}
+              resources:
+{{ toYaml .resources | indent 16 }}
+            {{- end }}
+          {{- end }}
+          containers:
+            - name: ray-worker
+              image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+              imagePullPolicy: {{ $.Values.image.pullPolicy }}
+              resources:
+{{ toYaml $.Values.gpuWorkers.resources | indent 16 }}
+              volumeMounts:
+{{ toYaml $.Values.gpuWorkers.volumeMounts | indent 16 }}
+          volumes:
+{{ toYaml $.Values.gpuWorkers.volumes | indent 12 }}
+    {{- end }}
