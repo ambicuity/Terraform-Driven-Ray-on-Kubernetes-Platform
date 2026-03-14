@@ -3,10 +3,10 @@
 
 --- Terraform root ---
 Initializing provider plugins...
-- Reusing previous version of hashicorp/aws from the dependency lock file
 - Reusing previous version of hashicorp/tls from the dependency lock file
-- Using previously-installed hashicorp/aws v6.33.0
+- Reusing previous version of hashicorp/aws from the dependency lock file
 - Using previously-installed hashicorp/tls v4.2.1
+- Using previously-installed hashicorp/aws v6.33.0
 
 Terraform has been successfully initialized!
 
@@ -30,12 +30,12 @@ Success! 3 passed, 0 failed.
 --- Terraform example ---
 Initializing modules...
 Initializing provider plugins...
-- Reusing previous version of hashicorp/aws from the dependency lock file
 - Reusing previous version of hashicorp/helm from the dependency lock file
+- Reusing previous version of hashicorp/aws from the dependency lock file
 - Reusing previous version of hashicorp/tls from the dependency lock file
-- Using previously-installed hashicorp/aws v5.100.0
-- Using previously-installed hashicorp/helm v2.17.0
 - Using previously-installed hashicorp/tls v4.2.1
+- Using previously-installed hashicorp/helm v2.17.0
+- Using previously-installed hashicorp/aws v5.100.0
 
 Terraform has been successfully initialized!
 
@@ -50,6 +50,6 @@ Success! The configuration is valid.
 
 --- Python tests ---
 .............                                                            [100%]
-13 passed in 0.04s
+13 passed in 0.05s
 
 # Exit code: 0
